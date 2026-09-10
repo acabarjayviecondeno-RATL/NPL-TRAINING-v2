@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NPL Dynamic Training Dashboard</title>
+  <link rel="icon" type="image/png" href="/NPL TRAINING/presentation.png">
+  <!-- PapaParse for CSV Stream Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Chart.js for Interactive Data Visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Samsung Sharp Sans Font Declarations */
+    @font-face {
+      font-family: 'Samsung Sharp Sans';
+      src: url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Medium.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Medium.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Samsung Sharp Sans';
+      src: url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Bold.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Bold.woff') format('woff');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg-dashboard: #f4f7fe;
+      --card-bg: #ffffff;
+      --primary-blue: #1428a0; /* Samsung Blue */
+      --secondary-cyan: #06b6d4;
+      --text-main: #1e293b;
+      --text-muted: #8e9babb8;
+      --border-color: #e2e8f0;
+      --card-shadow: 0 10px 30px rgba(112, 144, 176, 0.07);
+      --font-family: 'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif;
+      --header-bg: #ffffff;
+
+      --th-ff-bg: #e0f2fe;
+      --th-ff-text: #0369a1;
+      --th-fsm-bg: #ffedd5;
+      --th-fsm-text: #c2410c;
+      --th-total-bg: #dcfce7;
+      --th-total-text: #15803d;
+      --td-ff-bg: #f0f9ff;
+      --td-fsm-bg: #fff7ed;
+      --td-models-bg: #f1f5f9;
+    }
+
+    body.dark-mode {
+      --bg-dashboard: #0b0f19;
+      --card-bg: #151d2a;
+      --primary-blue: #2141c6;
+      --secondary-cyan: #22d3ee;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #263346;
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      --header-bg: #151d2a;
+
+      --th-ff-bg: #1e3a8a;
+      --th-ff-text: #93c5fd;
+      --th-fsm-bg: #7c2d12;
+      --th-fsm-text: #fdba74;
+      --th-total-bg: #14532d;
+      --th-total-text: #86efac;
+      --td-ff-bg: #111e38;
+      --td-fsm-bg: #271a14;
+      --td-models-bg: #1e293b;
+    }
+
+    body {
+      font-family: var(--font-family);
+      font-weight: normal;
+      margin: 0;
+      padding: 24px;
+      background-color: var(--bg-dashboard);
+      color: var(--text-main);
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    @media print { body { display: none !important; } }
+
+    /* Login Overlay Styles - Solid Black Aesthetic */
+    #login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000000;
+      z-index: 99999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-card {
+      background: #121212;
+      padding: 40px 35px;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8);
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      border: 1px solid #262626;
+    }
+    .login-card h2 { 
+      margin-top: 0; 
+      margin-bottom: 8px; 
+      color: #ffffff; 
+      font-size: 1.45em; 
+      letter-spacing: -0.5px;
+    }
+    .login-card p { 
+      color: #a3a3a3; 
+      font-size: 0.85em; 
+      margin-bottom: 28px; 
+    }
+    .login-card input {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      border: 2px solid #262626;
+      border-radius: 14px;
+      box-sizing: border-box;
+      font-size: 0.95em;
+      background: #000000;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-card input:focus {
+      border-color: #2141c6;
+    }
+    .login-card button {
+      width: 100%;
+      padding: 14px;
+      background-color: #2141c6;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95em;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 0.3px;
+      transition: background-color 0.2s, opacity 0.2s;
+    }
+    .login-card button:hover { opacity: 0.92; background-color: #1428a0; }
+    #loading-log { display: none; margin-top: 12px; color: #a3a3a3; font-size: 0.85em; }
+
+    #security-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-dashboard);
+      z-index: 99999;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #dc2626;
+    }
+
+    #main-dashboard-container {
+      display: none;
+    }
+
+    b, strong, h1, h2, h3, h4, th, .tab-btn, .value, .bold {
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+
+    .sticky-top-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background-color: var(--bg-dashboard);
+      padding-top: 4px;
+      padding-bottom: 12px;
+    }
+
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      .sticky-top-wrapper { position: relative !important; top: initial !important; padding-top: 0; }
+      .header { padding: 14px 18px !important; }
+      .header h1 { font-size: 1.25em !important; }
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--header-bg);
+      padding: 18px 28px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 { margin: 0 0 4px 0; font-size: 1.5em; color: var(--text-main); letter-spacing: -0.4px; }
+    .header p { margin: 0; color: var(--text-muted); font-size: 0.85em; }
+    
+    .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    .btn-toggle {
+      padding: 8px 14px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-main);
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.8em;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-toggle:hover { background: var(--primary-blue); color: #ffffff; }
+
+    .live-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8em;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+    body.dark-mode .live-status { background: #064e3b; color: #34d399; }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .tabs { display: flex; gap: 10px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+    .tab-btn {
+      padding: 10px 22px;
+      border: none;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 14px;
+      font-size: 0.88em;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .tab-btn.active {
+      background: var(--primary-blue);
+      color: #ffffff;
+      box-shadow: 0 8px 16px rgba(20, 40, 160, 0.25);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 18px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+    }
+    .card h4 { margin: 0 0 8px 0; color: var(--text-muted); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.6px; }
+    .card .value { font-size: 1.35em; color: var(--text-main); word-break: break-word; }
+    .card .sub-value { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
+
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; margin-bottom: 24px; }
+    .chart-card {
+      background: var(--card-bg);
+      padding: 22px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+    .chart-card h4 { margin: 0 0 16px 0; font-size: 0.95em; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+    .chart-container { position: relative; height: 250px; width: 100%; }
+
+    .tables-layout { display: flex; flex-direction: column; gap: 24px; }
+    .table-container {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+    }
+    .table-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+    .table-header-flex h3 { margin: 0; font-size: 1.05em; color: var(--text-main); }
+
+    .filter-group { display: flex; align-items: center; gap: 8px; font-size: 0.85em; }
+    .filter-select {
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      font-size: 0.9em;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Table Wrapper para magka-radius ang mismong gilid ng table at may horizontal scroll kung kinakailangan */
+    .table-responsive-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; color: var(--text-main); }
+    
+    /* Straight/diretso ang mga gilid sa loob ng table */
+    th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 0 !important; }
+
+    /* Hover effect para sa buong row ng table */
+    tbody tr {
+      transition: background-color 0.15s ease;
+    }
+    tbody tr:hover {
+      background-color: rgba(20, 40, 160, 0.06) !important;
+    }
+    body.dark-mode tbody tr:hover {
+      background-color: rgba(34, 211, 238, 0.08) !important;
+    }
+
+    .th-ff { background-color: var(--th-ff-bg) !important; color: var(--th-ff-text) !important; }
+    .th-fsm { background-color: var(--th-fsm-bg) !important; color: var(--th-fsm-text) !important; }
+    .th-total { background-color: var(--th-total-bg) !important; color: var(--th-total-text) !important; }
+
+    .td-ff { background-color: var(--td-ff-bg) !important; }
+    .td-fsm { background-color: var(--td-fsm-bg) !important; }
+    .td-models { background-color: var(--td-models-bg) !important; color: var(--secondary-cyan) !important; }
+
+    /* Conditional Formatting Color Classes */
+    .bg-target-red { background-color: #fee2e2 !important; color: #991b1b !important; }
+    .bg-target-orange { background-color: #ffedd5 !important; color: #c2410c !important; }
+    .bg-target-green { background-color: #dcfce7 !important; color: #166534 !important; }
+    .bg-target-blue { background-color: #dbeafe !important; color: #1e40af !important; }
+
+    body.dark-mode .bg-target-red { background-color: #451212 !important; color: #fca5a5 !important; }
+    body.dark-mode .bg-target-orange { background-color: #431407 !important; color: #fdba74 !important; }
+    body.dark-mode .bg-target-green { background-color: #052e16 !important; color: #86efac !important; }
+    body.dark-mode .bg-target-blue { background-color: #172554 !important; color: #93c5fd !important; }
+
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.72em;
+      color: white;
+      display: inline-block;
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+    .bg-done { background: #0d9488; color: #ffffff; }
+    .bg-offtrack { background: #dc2626; color: #ffffff; }
+    .bg-ontrack { background: #047857; color: #ffffff; }
+    .bg-progress { background: #f59e0b; color: #ffffff; }
+    .bg-pending { background: #64748b; color: #ffffff; }
+
+    #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
+  </style>
+</head>
+<body oncontextmenu="return false;">
+
+  <!-- LOGIN POPUP OVERLAY WITH SOLID BLACK BACKGROUND -->
+  <div id="login-overlay" style="display: none;">
+    <div class="login-card">
+      <h2>Welcome to NPL Dashboard</h2>
+      <p>Please enter your nickname to proceed</p>
+      <form id="loginForm">
+        <input type="text" id="nicknameInput" placeholder="e.g. Jayvie" required autocomplete="off">
+        <button type="submit" id="loginBtn">Enter Dashboard</button>
+        <div id="loading-log">Saving log...</div>
+      </form>
+    </div>
+  </div>
+
+  <div id="security-overlay">Screenshot & Saving Restricted for Security Purposes</div>
+
+  <div id="main-dashboard-container">
+    <div class="sticky-top-wrapper">
+      <div class="header">
+        <div>
+          <h1>NPL Dynamic Training Dashboard</h1>
+          <p>Visual Analytics & Interactive Performance Metrics</p>
+        </div>
+        <div class="header-controls">
+          <button class="btn-toggle" onclick="toggleNightMode()">🌙 Night Mode</button>
+          <div class="live-status">
+            <span class="pulse-dot"></span>
+            <span id="syncText">CONNECTING...</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
+      <div class="tabs" id="tabsContainer"></div>
+      <div id="summaryCardsContainer" class="cards-grid"></div>
+    </div>
+
+    <div id="contentsContainer"></div>
+  </div>
+
+  <script>
+    // GOOGLE APPS SCRIPT WEB APP URL FOR LOG SHEET
+    const LOG_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx61rfmLTrn7MlVQr9h-Bsv02KoLoBFQJ2DBfQMQ4_0XzrG1vOu6v_OJl_4hg-SppLiKg/exec";
+
+    const loginForm = document.getElementById('loginForm');
+    const loginOverlay = document.getElementById('login-overlay');
+    const mainDashboardContainer = document.getElementById('main-dashboard-container');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const isLogged = sessionStorage.getItem('npl_logged_in');
+      if (isLogged === 'true') {
+        loginOverlay.style.display = 'none';
+        mainDashboardContainer.style.display = 'block';
+        fetchCSVData();
+      } else {
+        loginOverlay.style.display = 'flex';
+      }
+    });
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const nickname = document.getElementById('nicknameInput').value.trim();
+      if (!nickname) return;
+
+      sessionStorage.setItem('npl_logged_in', 'true');
+      loginOverlay.style.display = 'none';
+      mainDashboardContainer.style.display = 'block';
+      fetchCSVData();
+
+      const deviceInfo = navigator.userAgent;
+      const logData = {
+        nickname: nickname,
+        device: deviceInfo
+      };
+
+      fetch(LOG_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData)
+      }).catch(err => {
+        console.error("Log error background sync:", err);
+      });
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (
+        e.keyCode === 44 ||
+        (e.ctrlKey && (e.keyCode === 83 || e.keyCode === 80 || e.keyCode === 85 || e.keyCode === 73)) ||
+        e.keyCode === 123
+      ) {
+        e.preventDefault();
+        showSecurityWarning("Action Restricted: Printing, Saving, or Capturing is disabled.");
+        return false;
+      }
+    });
+
+    window.addEventListener('blur', function() {
+      document.getElementById('security-overlay').style.display = 'flex';
+    });
+
+    window.addEventListener('focus', function() {
+      document.getElementById('security-overlay').style.display = 'none';
+    });
+
+    function showSecurityWarning(msg) {
+      const overlay = document.getElementById('security-overlay');
+      overlay.innerText = msg;
+      overlay.style.display = 'flex';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 2000);
+    }
+
+    function toggleNightMode() {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)';
+
+      Object.keys(chartInstances).forEach(key => {
+        const chart = chartInstances[key];
+        if (chart && chart.options.scales) {
+          if (chart.options.scales.x) chart.options.scales.x.ticks.color = textColor;
+          if (chart.options.scales.y) {
+            chart.options.scales.y.ticks.color = textColor;
+            if (chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
+          }
+          chart.update();
+        }
+      });
+    }
+
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0h-UPJQmlKl3Q1VWFklTWgPhNClo-2XcI7trEztjG_kQoTGFJnqE4RfY7POQKkrLPQArwtJUXY0aP/pub?gid=0&single=true&output=csv";
+
+    let activeModelTab = "OVERALL SUMMARY";
+    const chartInstances = {};
+    let globalSummaryStore = {};
+
+    Chart.defaults.font.family = "'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif";
+
+    function fetchCSVData() {
+      Papa.parse(CSV_URL, {
+        download: true,
+        skipEmptyLines: false,
+        complete: function(results) {
+          const loader = document.getElementById('loader');
+          if (loader) loader.style.display = 'none';
+
+          if (results.data && results.data.length > 0) {
+            processCSVRows(results.data);
+            document.getElementById('syncText').innerText = `LIVE UPDATED (${new Date().toLocaleTimeString()})`;
+          }
+        },
+        error: function(err) {
+          console.error("Auto-sync error:", err);
+          document.getElementById('syncText').innerText = "RETRYING CONNECTION...";
+        }
+      });
+    }
+
+    function processCSVRows(rows) {
+      let subHeaderRowIdx = -1;
+      let startDateRowIdx = -1;
+      let endDateRowIdx = -1;
+
+      for (let i = 0; i < rows.length; i++) {
+        const rowStr = rows[i].map(c => c ? c.toString().toUpperCase() : '').join(' ');
+        if (rowStr.includes('START DATE')) startDateRowIdx = i;
+        if (rowStr.includes('END DATE')) endDateRowIdx = i;
+        if (rowStr.includes('FT NAME') || rowStr.includes('STORE NAME') || rowStr.includes('MCS CODE')) {
+          subHeaderRowIdx = i;
+          break;
+        }
+      }
+
+      if (subHeaderRowIdx === -1) subHeaderRowIdx = Math.min(8, rows.length - 1);
+      
+      let headerRowIdx = Math.max(0, subHeaderRowIdx - 1);
+      for (let i = subHeaderRowIdx - 1; i >= 0; i--) {
+        const rStr = rows[i].map(c => c ? c.toString().trim() : '').join('');
+        if (rStr.length > 0) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+
+      const subHeaderRow = rows[subHeaderRowIdx] || [];
+      const modelRow = rows[headerRowIdx] || subHeaderRow;
+      const startDateRow = startDateRowIdx !== -1 ? rows[startDateRowIdx] : [];
+      const endDateRow = endDateRowIdx !== -1 ? rows[endDateRowIdx] : [];
+
+      let mcsColIdx = 0, storeColIdx = 1, areaColIdx = 2, dealerColIdx = 3, ap1ColIdx = 5, ftColIdx = 6;
+      subHeaderRow.forEach((val, idx) => {
+        const text = val ? val.toString().trim().toUpperCase() : '';
+        if (text === 'MCS CODE' || text.includes('MCS')) mcsColIdx = idx;
+        else if (text === 'STORE NAME' || text.includes('STORE')) storeColIdx = idx;
+        else if (text === 'AREA') areaColIdx = idx;
+        else if (text === 'DEALER') dealerColIdx = idx;
+        else if (text === 'AP1') ap1ColIdx = idx;
+        else if (text === 'FT NAME' || text.includes('FIELD TRAINER')) ftColIdx = idx;
+      });
+
+      const modelsMap = {};
+      let lastModelFound = ""; 
+
+      for (let col = ftColIdx + 1; col < subHeaderRow.length; col++) {
+        const rawModel = modelRow[col] ? modelRow[col].toString().trim() : '';
+        const metricName = subHeaderRow[col] ? subHeaderRow[col].toString().trim() : '';
+
+        if (rawModel && 
+            !['SUBTOTAL', 'TOTAL', 'X', 'x', 'MCS CODE', 'STORE NAME', 'AREA', 'DEALER', 'CHANNEL TYPE', 'AP1', 'FT NAME', 'RSI', 'ACH%', ''].includes(rawModel.toUpperCase()) &&
+            !rawModel.toUpperCase().includes('START DATE') && 
+            !rawModel.toUpperCase().includes('END DATE')) {
+          lastModelFound = rawModel;
+        }
+
+        const currentModel = lastModelFound || rawModel;
+
+        if (metricName && currentModel && 
+            !['START DATE', 'END DATE'].includes(currentModel.toUpperCase())) {
+          if (!modelsMap[currentModel]) modelsMap[currentModel] = { rsiCol: -1, metrics: [] };
+          
+          if (metricName.toUpperCase() === 'RSI') {
+            modelsMap[currentModel].rsiCol = col;
+          } else {
+            const sDate = startDateRow[col] ? startDateRow[col].toString().trim() : '';
+            const eDate = endDateRow[col] ? endDateRow[col].toString().trim() : '';
+            modelsMap[currentModel].metrics.push({ index: col, metric: metricName, startDate: sDate, endDate: eDate });
+          }
+        }
+      }
+
+      let finalValidModels = Object.keys(modelsMap).filter(m => modelsMap[m] && modelsMap[m].metrics && modelsMap[m].metrics.length > 0);
+      if (finalValidModels.length === 0) {
+        finalValidModels = ["A27 5G"];
+        modelsMap["A27 5G"] = { rsiCol: ftColIdx + 1, metrics: [{ index: ftColIdx + 2, metric: "ACH%", startDate: "", endDate: "" }] };
+      }
+
+      const rawDataRows = rows.slice(subHeaderRowIdx + 1);
+      const dataRows = rawDataRows.filter(row => {
+        const mcs = row[mcsColIdx] ? row[mcsColIdx].toString().trim().toUpperCase() : '';
+        const store = row[storeColIdx] ? row[storeColIdx].toString().trim().toUpperCase() : '';
+        if (!mcs && !store) return false;
+        if (mcs.includes('TOTAL') || store.includes('TOTAL') || mcs.includes('SUBTOTAL') || store.includes('SUBTOTAL')) return false;
+        return true;
+      });
+
+      buildDashboard(finalValidModels, modelsMap, dataRows, mcsColIdx, storeColIdx, areaColIdx, dealerColIdx, ap1ColIdx, ftColIdx);
+    }
+
+    function switchTab(model) {
+      activeModelTab = model;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.innerText === model);
+      });
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === `tab-${model.replace(/[^a-zA-Z0-9]/g, '-')}`);
+      });
+      
+      if (globalSummaryStore[model]) {
+        document.getElementById('summaryCardsContainer').innerHTML = globalSummaryStore[model];
+      }
+    }
+
+    function filterFtTable(safeModelId) {
+      const selectedRegion = document.getElementById(`filter-region-${safeModelId}`).value.toUpperCase();
+      const tbody = document.getElementById(`tbody-ft-${safeModelId}`);
+      if (!tbody) return;
+      tbody.querySelectorAll('tr').forEach(row => {
+        const regionTd = row.getAttribute('data-region');
+        if (regionTd) row.style.display = (selectedRegion === 'ALL' || regionTd.toUpperCase() === selectedRegion) ? '' : 'none';
+      });
+    }
+
+    function filterDealerTable(safeModelId) {
+      const selectedAp1 = document.getElementById(`filter-ap1-${safeModelId}`).value.toUpperCase();
+      const tbody = document.getElementById(`tbody-dealer-${safeModelId}`);
+      if (!tbody) return;
+      tbody.querySelectorAll('tr').forEach(row => {
+        const ap1Td = row.getAttribute('data-ap1');
+        if (ap1Td) row.style.display = (selectedAp1 === 'ALL' || ap1Td.toUpperCase() === selectedAp1) ? '' : 'none';
+      });
+    }
+
+    function getTargetColorClass(ach) {
+      if (ach >= 100) return 'bg-target-blue';
+      if (ach >= 95) return 'bg-target-green';
+      if (ach >= 80) return 'bg-target-orange';
+      return 'bg-target-red';
+    }
+
+    function computeTimelineStatus(startDateStr, endDateStr, achVal) {
+      if (achVal >= 100) {
+        return { text: "Done", badge: "bg-done" };
+      }
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      const sDate = startDateStr ? new Date(startDateStr) : null;
+      const eDate = endDateStr ? new Date(endDateStr) : null;
+      if (sDate) sDate.setHours(0,0,0,0);
+      if (eDate) eDate.setHours(0,0,0,0);
+
+      if (eDate && today > eDate) {
+        return { text: "Off-Track", badge: "bg-offtrack" };
+      }
+
+      return { text: "On-Track", badge: "bg-ontrack" };
+    }
+
+    function buildDashboard(models, modelsMap, dataRows, mcsColIdx, storeColIdx, areaColIdx, dealerColIdx, ap1ColIdx, ftColIdx) {
+      const tabsContainer = document.getElementById('tabsContainer');
+      const summaryCardsContainer = document.getElementById('summaryCardsContainer');
+      const contentsContainer = document.getElementById('contentsContainer');
+
+      tabsContainer.innerHTML = '';
+      summaryCardsContainer.innerHTML = '';
+      contentsContainer.innerHTML = '';
+
+      globalSummaryStore = {};
+
+      const overallFtAgg = {}, overallAreaAgg = {}, overallAp1Agg = {}, overallDealerAgg = {};
+      const overallFtRegionMap = {}, overallDealerAp1Map = {};
+      const overallRsiRegions = new Set();
+      const overallRsiAp1s = new Set();
+      
+      const uniqueStoresSet = new Set();
+      const uniqueFtSet = new Set();
+      const storeMaxMap = {};
+
+      const modelAchData = [];
+      const modelTargetData = [];
+      const modelActualData = [];
+      let overallDoneModels = 0, overallProgressModels = 0, overallPendingModels = 0;
+
+      const allTabs = ["OVERALL SUMMARY", ...models];
+
+      allTabs.forEach((tabName) => {
+        const isActive = (tabName === activeModelTab);
+        const safeModelId = tabName.replace(/[^a-zA-Z0-9]/g, '-');
+
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+        btn.innerText = tabName;
+        btn.onclick = () => switchTab(tabName);
+        tabsContainer.appendChild(btn);
+
+        if (tabName !== "OVERALL SUMMARY") {
+          const model = tabName;
+          const modelObj = modelsMap[model] || { rsiCol: -1, metrics: [] };
+          const cols = modelObj.metrics;
+          const rsiCol = modelObj.rsiCol;
+
+          let maxFreqFF = 0, maxFreqFSM = 0;
+          let isFSMSection = false;
+
+          cols.forEach(c => {
+            const mName = c.metric.toUpperCase();
+            if (mName.includes('TARGET HC (FSM)') || mName.includes('FSM')) isFSMSection = true;
+
+            const match = mName.match(/FREQ\s*(\d+)/);
+            if (match) {
+              const freqNum = parseInt(match[1]);
+              if (isFSMSection) { if (freqNum > maxFreqFSM) maxFreqFSM = freqNum; }
+              else { if (freqNum > maxFreqFF) maxFreqFF = freqNum; }
+            }
+          });
+
+          let lastFreqStart = '';
+          let lastFreqEnd = '';
+          
+          const targetLastFF = maxFreqFF > 0 ? `FREQ ${maxFreqFF}` : '';
+          cols.forEach(c => {
+            const mName = c.metric.toUpperCase();
+            if ((mName.includes(targetLastFF) && !mName.includes('FSM')) || (!mName.includes('FSM') && c.endDate)) {
+              if (c.endDate) {
+                lastFreqStart = c.startDate;
+                lastFreqEnd = c.endDate;
+              }
+            }
+          });
+          if (!lastFreqEnd && cols.length > 0) {
+            lastFreqStart = cols[cols.length - 1].startDate;
+            lastFreqEnd = cols[cols.length - 1].endDate;
+          }
+
+          const ftAgg = {}, areaAgg = {}, ap1Agg = {}, dealerAgg = {};
+          const ftRegionMap = {}, dealerAp1Map = {};
+          const rsiRegionsSet = new Set();
+          const rsiAp1Set = new Set();
+          let totalTargetOverall = 0, totalActualOverall = 0;
+
+          dataRows.forEach((row) => {
+            if (rsiCol !== -1) {
+              const rsiVal = row[rsiCol] ? row[rsiCol].toString().trim() : '0';
+              if (rsiVal !== '1' && rsiVal !== '1.0' && rsiVal.toUpperCase() !== 'TRUE') {
+                return;
+              }
+            }
+
+            const mcs = row[mcsColIdx] ? row[mcsColIdx].toString().trim() : '';
+            const storeName = row[storeColIdx] ? row[storeColIdx].toString().trim() : '';
+            const area = row[areaColIdx] ? row[areaColIdx].toString().trim() : 'N/A';
+            const dealer = row[dealerColIdx] ? row[dealerColIdx].toString().trim() : 'N/A';
+            const ft = row[ftColIdx] ? row[ftColIdx].toString().trim() : 'NO FT TAGGING';
+            const ap1 = row[ap1ColIdx] ? row[ap1ColIdx].toString().trim() : 'N/A';
+
+            if (!mcs && !storeName) return;
+
+            let targetFF = 0, targetFSM = 0;
+            const freqsFF = {}, freqsFSM = {};
+            let curIsFSM = false;
+
+            cols.forEach(c => {
+              const rawVal = row[c.index] ? row[c.index].toString().replace('%', '').trim() : '0';
+              const val = parseFloat(rawVal) || 0;
+              const mName = c.metric.toUpperCase();
+
+              if (mName.includes('TARGET HC (FSM)') || (mName.includes('FSM') && mName.includes('TARGET'))) { curIsFSM = true; targetFSM = val; }
+              else if (mName.includes('TARGET HC (FF)') || (mName.includes('FF') && mName.includes('TARGET'))) targetFF = val;
+              else {
+                const match = mName.match(/FREQ\s*(\d+)/);
+                if (match) {
+                  const fNum = parseInt(match[1]);
+                  if (curIsFSM) freqsFSM[fNum] = val;
+                  else freqsFF[fNum] = val;
+                }
+              }
+            });
+
+            if (targetFF === 0 && maxFreqFF === 0) targetFF = 1;
+
+            const storeIdentifier = mcs || storeName;
+            if (storeIdentifier) uniqueStoresSet.add(storeIdentifier);
+            if (ft && ft !== 'NO FT TAGGING') uniqueFtSet.add(ft);
+
+            if (area && area !== 'N/A') { rsiRegionsSet.add(area); overallRsiRegions.add(area); }
+            if (ap1 && ap1 !== 'N/A') { rsiAp1Set.add(ap1); overallRsiAp1s.add(ap1); }
+
+            ftRegionMap[ft] = area;
+            dealerAp1Map[dealer] = ap1;
+            overallFtRegionMap[ft] = area;
+            overallDealerAp1Map[dealer] = ap1;
+
+            let sumFreqFF = 0;
+            for (let f = 1; f <= maxFreqFF; f++) sumFreqFF += (freqsFF[f] || 0);
+            const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : (targetFF > 0 ? targetFF : 0);
+
+            let sumFreqFSM = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) sumFreqFSM += (freqsFSM[f] || 0);
+            const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : (targetFSM > 0 ? targetFSM : 0);
+
+            const rowTarget = targetFF + targetFSM;
+            const rowActual = storeActualFF + storeActualFSM;
+
+            totalTargetOverall += rowTarget;
+            totalActualOverall += rowActual;
+
+            if (!storeMaxMap[storeIdentifier]) {
+              storeMaxMap[storeIdentifier] = { targetFF: targetFF, actualFF: storeActualFF, targetFSM: targetFSM, actualFSM: storeActualFSM };
+            } else {
+              storeMaxMap[storeIdentifier].targetFF = Math.max(storeMaxMap[storeIdentifier].targetFF, targetFF);
+              storeMaxMap[storeIdentifier].actualFF = Math.max(storeMaxMap[storeIdentifier].actualFF, storeActualFF);
+              storeMaxMap[storeIdentifier].targetFSM = Math.max(storeMaxMap[storeIdentifier].targetFSM, targetFSM);
+              storeMaxMap[storeIdentifier].actualFSM = Math.max(storeMaxMap[storeIdentifier].actualFSM, storeActualFSM);
+            }
+
+            const initAggRow = () => {
+              const obj = { targetFF: 0, targetFSM: 0, freqsFF: {}, freqsFSM: {} };
+              for (let f = 1; f <= maxFreqFF; f++) obj.freqsFF[f] = 0;
+              for (let f = 1; f <= maxFreqFSM; f++) obj.freqsFSM[f] = 0;
+              return obj;
+            };
+
+            const addDataToAgg = (aggObj, key) => {
+              if (!aggObj[key]) aggObj[key] = initAggRow();
+              aggObj[key].targetFF += targetFF;
+              aggObj[key].targetFSM += targetFSM;
+              for (let f = 1; f <= maxFreqFF; f++) aggObj[key].freqsFF[f] += (freqsFF[f] || 0);
+              for (let f = 1; f <= maxFreqFSM; f++) aggObj[key].freqsFSM[f] += (freqsFSM[f] || 0);
+            };
+
+            addDataToAgg(ftAgg, ft);
+            addDataToAgg(areaAgg, area);
+            addDataToAgg(ap1Agg, ap1);
+            addDataToAgg(dealerAgg, dealer);
+
+            const addDataToOverall = (ovObj, key) => {
+              if (!ovObj[key]) ovObj[key] = { targetFF: 0, actualFF: 0, targetFSM: 0, actualFSM: 0, modelsSet: new Set() };
+              ovObj[key].targetFF += targetFF;
+              ovObj[key].actualFF += storeActualFF;
+              ovObj[key].targetFSM += targetFSM;
+              ovObj[key].actualFSM += storeActualFSM;
+              if (rowTarget > 0 || rowActual > 0) ovObj[key].modelsSet.add(model);
+            };
+
+            addDataToOverall(overallFtAgg, ft);
+            addDataToOverall(overallAreaAgg, area);
+            addDataToOverall(overallAp1Agg, ap1);
+            addDataToOverall(overallDealerAgg, dealer);
+          });
+
+          totalActualOverall = Math.round(totalActualOverall);
+          const modelAchVal = totalTargetOverall > 0 ? parseFloat(((totalActualOverall / totalTargetOverall) * 100).toFixed(1)) : 0;
+
+          modelAchData.push(modelAchVal);
+          modelTargetData.push(totalTargetOverall);
+          modelActualData.push(totalActualOverall);
+
+          if (modelAchVal >= 100) overallDoneModels++;
+          else if (totalActualOverall > 0) overallProgressModels++;
+          else overallPendingModels++;
+
+          const areaLabels = Object.keys(areaAgg);
+          const areaAchData = [], areaTargetData = [], areaActualData = [];
+          let doneCount = 0, progressCount = 0, pendingCount = 0;
+
+          areaLabels.forEach(key => {
+            const r = areaAgg[key];
+            const totalTarget = r.targetFF + r.targetFSM;
+
+            let sumFF = 0;
+            for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : r.targetFF;
+
+            let sumFSM = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : r.targetFSM;
+
+            const totalActual = Math.round(actFF + actFSM);
+            const ach = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(1)) : 0;
+
+            areaAchData.push(ach);
+            areaTargetData.push(totalTarget);
+            areaActualData.push(totalActual);
+
+            if (ach >= 100 && totalTarget > 0) doneCount++;
+            else if (totalActual > 0) progressCount++;
+            else pendingCount++;
+          });
+
+          const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
+            const keys = Object.keys(aggObj);
+            const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 5;
+
+            if (keys.length === 0) return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Data Found</td></tr>`;
+
+            return keys.map(key => {
+              const r = aggObj[key];
+              const totalTarget = r.targetFF + r.targetFSM;
+
+              let sumFF = 0;
+              for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : r.targetFF;
+
+              let sumFSM = 0;
+              for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : r.targetFSM;
+
+              const totalActual = Math.round(actFF + actFSM);
+              const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
+              const ach = achVal.toFixed(1);
+              
+              const targetColorClass = getTargetColorClass(achVal);
+
+              let badge = 'bg-pending', status = 'NOT STARTED';
+              if (achVal >= 100 && totalTarget > 0) { badge = 'bg-done'; status = 'DONE'; }
+              else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+
+              let ffFreqTds = '';
+              for (let f = 1; f <= maxFreqFF; f++) {
+                ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
+              }
+
+              let fsmFreqTds = '';
+              for (let f = 1; f <= maxFreqFSM; f++) {
+                fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
+              }
+
+              let extraTd = '', dataAttr = '';
+              if (extraType && extraMap) {
+                const extraVal = extraMap[key] || 'N/A';
+                extraTd = `<td>${extraVal}</td>`;
+                if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
+                else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
+              }
+
+              const timelineRes = computeTimelineStatus(lastFreqStart, lastFreqEnd, achVal);
+
+              return `
+                <tr ${dataAttr}>
+                  <td class="${targetColorClass}"><b>${key}</b></td>
+                  ${extraTd}
+                  ${maxFreqFF > 0 ? `<td style="background:var(--border-color);">${r.targetFF}</td>${ffFreqTds}` : ''}
+                  ${maxFreqFSM > 0 ? `<td style="background:var(--border-color);">${r.targetFSM}</td>${fsmFreqTds}` : ''}
+                  <td><b>${totalTarget}</b></td>
+                  <td><b>${totalActual}</b></td>
+                  <td><b>${ach}%</b></td>
+                  <td><span class="badge ${badge}">${status}</span></td>
+                  <td><span class="badge ${timelineRes.badge}">${timelineRes.text}</span></td>
+                </tr>
+              `;
+            }).join('');
+          };
+
+          const buildHeaderHTML = (groupTitle, extraColName = '') => {
+            let ffHeaders = '';
+            for (let f = 1; f <= maxFreqFF; f++) ffHeaders += `<th>Freq ${f}</th>`;
+
+            let fsmHeaders = '';
+            for (let f = 1; f <= maxFreqFSM; f++) fsmHeaders += `<th>Freq ${f}</th>`;
+
+            return `
+              <thead>
+                <tr>
+                  <th rowspan="2">${groupTitle}</th>
+                  ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
+                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>` : ''}
+                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" class="th-fsm" style="text-align:center;">FSM</th>` : ''}
+                  <th colspan="5" class="th-total" style="text-align:center;">TOTAL SUMMARY</th>
+                </tr>
+                <tr>
+                  ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
+                  ${maxFreqFSM > 0 ? `<th>Target</th>${fsmHeaders}` : ''}
+                  <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th><th>Timeline</th>
+                </tr>
+              </thead>
+            `;
+          };
+
+          const getLeadingGroup = (aggObj) => {
+            const keys = Object.keys(aggObj);
+            if (keys.length === 0) return { name: 'NO DATA', sub: 'No records available' };
+
+            const allList = [];
+            for (const key of keys) {
+              const r = aggObj[key];
+              const totalTarget = r.targetFF + r.targetFSM;
+              const totalActual = Math.round(r.targetFF + r.targetFSM);
+              const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
+              allList.push({ key, totalActual, ach });
+            }
+
+            allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
+            const winner = allList[0];
+            return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH)` };
+          };
+
+          const leadingFT = getLeadingGroup(ftAgg);
+          const leadingDealer = getLeadingGroup(dealerAgg);
+          const leadingArea = getLeadingGroup(areaAgg);
+          const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
+
+          globalSummaryStore[model] = `
+            <div class="card">
+              <h4>Leading FT</h4>
+              <div class="value">${leadingFT.name}</div>
+              <div class="sub-value">${leadingFT.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Leading Dealer</h4>
+              <div class="value">${leadingDealer.name}</div>
+              <div class="sub-value">${leadingDealer.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Leading Area</h4>
+              <div class="value">${leadingArea.name}</div>
+              <div class="sub-value">${leadingArea.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Model Overall ACH %</h4>
+              <div class="value">${overallAch}%</div>
+              <div class="sub-value">Total Target vs Actual</div>
+            </div>
+          `;
+
+          const uniqueRegions = Array.from(rsiRegionsSet).sort();
+          const regionOptions = ['ALL', ...uniqueRegions].map(r => `<option value="${r}">${r}</option>`).join('');
+
+          const uniqueAp1 = Array.from(rsiAp1Set).sort();
+          const ap1Options = ['ALL', ...uniqueAp1].map(a => `<option value="${a}">${a}</option>`).join('');
+
+          const contentDiv = document.createElement('div');
+          contentDiv.id = `tab-${safeModelId}`;
+          contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+
+          contentDiv.innerHTML = `
+            <div class="charts-grid">
+              <div class="chart-card">
+                <h4>Area Status Overview</h4>
+                <div class="chart-container"><canvas id="chart-status-${safeModelId}"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <h4>ACH % per Area</h4>
+                <div class="chart-container"><canvas id="chart-ach-${safeModelId}"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <h4>Target vs Actual Headcount</h4>
+                <div class="chart-container"><canvas id="chart-gap-${safeModelId}"></canvas></div>
+              </div>
+            </div>
+
+            <div class="tables-layout">
+              <div class="table-container">
+                <h3>📍 Area Training Summary</h3>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('Area')}
+                    <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <h3>🏢 AP1 Training Summary</h3>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('AP1')}
+                    <tbody>${buildDetailedSummaryRows(ap1Agg)}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <div class="table-header-flex">
+                  <h3>👤 FT Name Training Summary</h3>
+                  <div class="filter-group">
+                    <label for="filter-region-${safeModelId}"><b>Filter Region:</b></label>
+                    <select id="filter-region-${safeModelId}" class="filter-select" onchange="filterFtTable('${safeModelId}')">
+                      ${regionOptions}
+                    </select>
+                  </div>
+                </div>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('FT Name', 'Region')}
+                    <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <div class="table-header-flex">
+                  <h3>🏪 Dealer Training Summary</h3>
+                  <div class="filter-group">
+                    <label for="filter-ap1-${safeModelId}"><b>Filter AP1:</b></label>
+                    <select id="filter-ap1-${safeModelId}" class="filter-select" onchange="filterDealerTable('${safeModelId}')">
+                      ${ap1Options}
+                    </select>
+                  </div>
+                </div>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('Dealer', 'AP1')}
+                    <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          `;
+          contentsContainer.appendChild(contentDiv);
+
+          setTimeout(() => {
+            renderModelCharts(safeModelId, {
+              status: [doneCount, progressCount, pendingCount],
+              areas: areaLabels,
+              ach: areaAchData,
+              target: areaTargetData,
+              actual: areaActualData
+            });
+          }, 50);
+        }
+      });
+
+      const activeModelsCount = overallProgressModels + overallPendingModels;
+      const totalModelsCount = models.length;
+
+      let grandTotalTarget = 0;
+      let grandTotalActual = 0;
+
+      Object.keys(storeMaxMap).forEach(sId => {
+        const item = storeMaxMap[sId];
+        grandTotalTarget += (item.targetFF + item.targetFSM);
+        grandTotalActual += (item.actualFF + item.actualFSM);
+      });
+
+      grandTotalActual = Math.round(grandTotalActual);
+      const grandAchVal = grandTotalTarget > 0 ? ((grandTotalActual / grandTotalTarget) * 100) : 0;
+      const grandAch = grandAchVal.toFixed(1);
+
+      globalSummaryStore["OVERALL SUMMARY"] = `
+        <div class="card">
+          <h4>Active Models</h4>
+          <div class="value">${activeModelsCount}</div>
+          <div class="sub-value">In Progress (&lt;100% ACH)</div>
+        </div>
+        <div class="card">
+          <h4>Total Models</h4>
+          <div class="value">${totalModelsCount}</div>
+          <div class="sub-value">Total NPL Lineup</div>
+        </div>
+        <div class="card">
+          <h4>Unique Stores HC</h4>
+          <div class="value">${uniqueStoresSet.size}</div>
+          <div class="sub-value">Distinct Active Stores</div>
+        </div>
+        <div class="card">
+          <h4>Unique FT HC</h4>
+          <div class="value">${uniqueFtSet.size}</div>
+          <div class="sub-value">Distinct Field Trainers</div>
+        </div>
+        <div class="card">
+          <h4>Total Target HC</h4>
+          <div class="value">${grandTotalTarget}</div>
+          <div class="sub-value">Max Headcount Target</div>
+        </div>
+        <div class="card">
+          <h4>Total Actual HC</h4>
+          <div class="value">${grandTotalActual}</div>
+          <div class="sub-value">Max Headcount Actual</div>
+        </div>
+        <div class="card">
+          <h4>Grand Overall ACH %</h4>
+          <div class="value">${grandAch}%</div>
+          <div class="sub-value">Overall Target vs Actual</div>
+        </div>
+      `;
+
+      if (activeModelTab === "OVERALL SUMMARY") {
+        summaryCardsContainer.innerHTML = globalSummaryStore["OVERALL SUMMARY"];
+      }
+
+      const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
+        const keys = Object.keys(ovObj);
+        if (keys.length === 0) return `<tr><td colspan="12" style="text-align:center; color:#888;">No Data Available</td></tr>`;
+
+        return keys.map(key => {
+          const item = ovObj[key];
+          
+          const targetFF = item.targetFF || 0;
+          const actualFF = Math.round(item.actualFF || 0);
+          const achFFVal = targetFF > 0 ? ((actualFF / targetFF) * 100) : 0;
+          const achFF = achFFVal.toFixed(1);
+
+          const targetFSM = item.targetFSM || 0;
+          const actualFSM = Math.round(item.actualFSM || 0);
+          const achFSMVal = targetFSM > 0 ? ((actualFSM / targetFSM) * 100) : 0;
+          const achFSM = achFSMVal.toFixed(1);
+
+          const totalTarget = targetFF + targetFSM;
+          const totalActual = actualFF + actualFSM;
+          const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
+          const ach = achVal.toFixed(1);
+
+          const targetColorClass = getTargetColorClass(achVal);
+
+          let badge = 'bg-pending', status = 'NOT STARTED';
+          if (achVal >= 100) { badge = 'bg-done'; status = 'DONE'; }
+          else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+
+          let extraTd = '', dataAttr = '';
+          if (extraType && extraMap) {
+            const extraVal = extraMap[key] || 'N/A';
+            extraTd = `<td>${extraVal}</td>`;
+            if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
+          }
+
+          return `
+            <tr ${dataAttr}>
+              <td class="${targetColorClass}"><b>${key}</b></td>
+              ${extraTd}
+              <td class="td-ff">${targetFF}</td>
+              <td class="td-ff">${actualFF}</td>
+              <td class="td-ff"><b>${achFF}%</b></td>
+              <td class="td-fsm">${targetFSM}</td>
+              <td class="td-fsm">${actualFSM}</td>
+              <td class="td-fsm"><b>${achFSM}%</b></td>
+              <td><b>${totalTarget}</b></td>
+              <td><b>${totalActual}</b></td>
+              <td><b>${ach}%</b></td>
+              <td><span class="badge ${badge}">${status}</span></td>
+            </tr>
+          `;
+        }).join('');
+      };
+
+      const buildOverallDealerSummaryRows = (ovObj, extraMap = null) => {
+        const keys = Object.keys(ovObj);
+        if (keys.length === 0) return `<tr><td colspan="13" style="text-align:center; color:#888;">No Data Available</td></tr>`;
+
+        return keys.map(key => {
+          const item = ovObj[key];
+          
+          const targetFF = item.targetFF || 0;
+          const actualFF = Math.round(item.actualFF || 0);
+          const achFFVal = targetFF > 0 ? ((actualFF / targetFF) * 100) : 0;
+          const achFF = achFFVal.toFixed(1);
+
+          const targetFSM = item.targetFSM || 0;
+          const actualFSM = Math.round(item.actualFSM || 0);
+          const achFSMVal = targetFSM > 0 ? ((actualFSM / targetFSM) * 100) : 0;
+          const achFSM = achFSMVal.toFixed(1);
+
+          const totalTarget = targetFF + targetFSM;
+          const totalActual = actualFF + actualFSM;
+          const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
+          const ach = achVal.toFixed(1);
+
+          const modelsCount = item.modelsSet ? item.modelsSet.size : 0;
+          const targetColorClass = getTargetColorClass(achVal);
+
+          let badge = 'bg-pending', status = 'NOT STARTED';
+          if (achVal >= 100) { badge = 'bg-done'; status = 'DONE'; }
+          else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+
+          const extraVal = extraMap[key] || 'N/A';
+
+          return `
+            <tr data-ap1="${extraVal}">
+              <td class="${targetColorClass}"><b>${key}</b></td>
+              <td>${extraVal}</td>
+              <td class="td-models" style="text-align:center; font-weight:bold;">${modelsCount}</td>
+              <td class="td-ff">${targetFF}</td>
+              <td class="td-ff">${actualFF}</td>
+              <td class="td-ff"><b>${achFF}%</b></td>
+              <td class="td-fsm">${targetFSM}</td>
+              <td class="td-fsm">${actualFSM}</td>
+              <td class="td-fsm"><b>${achFSM}%</b></td>
+              <td><b>${totalTarget}</b></td>
+              <td><b>${totalActual}</b></td>
+              <td><b>${ach}%</b></td>
+              <td><span class="badge ${badge}">${status}</span></td>
+            </tr>
+          `;
+        }).join('');
+      };
+
+      const buildOverallHeaderHTML = (groupTitle, extraColName = '', isDealer = false) => {
+        return `
+          <thead>
+            <tr>
+              <th rowspan="2">${groupTitle}</th>
+              ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
+              ${isDealer ? `<th rowspan="2" style="text-align:center;">Models Covered</th>` : ''}
+              <th colspan="3" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>
+              <th colspan="3" class="th-fsm" style="text-align:center;">FSM</th>
+              <th colspan="4" class="th-total" style="text-align:center;">TOTAL OVERALL SUMMARY</th>
+            </tr>
+            <tr>
+              <th class="th-ff">Target</th>
+              <th class="th-ff">Actual</th>
+              <th class="th-ff">ACH %</th>
+              <th class="th-fsm">Target</th>
+              <th class="th-fsm">Actual</th>
+              <th class="th-fsm">ACH %</th>
+              <th>Target HC</th>
+              <th>Actual HC</th>
+              <th>ACH %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+        `;
+      };
+
+      const overallRegionOptions = ['ALL', ...Array.from(overallRsiRegions).sort()].map(r => `<option value="${r}">${r}</option>`).join('');
+      const overallAp1Options = ['ALL', ...Array.from(overallRsiAp1s).sort()].map(a => `<option value="${a}">${a}</option>`).join('');
+
+      const overallDiv = document.createElement('div');
+      overallDiv.id = `tab-OVERALL-SUMMARY`;
+      overallDiv.className = `tab-content ${activeModelTab === "OVERALL SUMMARY" ? 'active' : ''}`;
+
+      overallDiv.innerHTML = `
+        <div class="charts-grid" style="margin-top: 15px;">
+          <div class="chart-card">
+            <h4>Models Status Overview</h4>
+            <div class="chart-container"><canvas id="chart-status-OVERALL-SUMMARY"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>ACH % per Model</h4>
+            <div class="chart-container"><canvas id="chart-ach-OVERALL-SUMMARY"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>Target vs Actual Headcount per Model</h4>
+            <div class="chart-container"><canvas id="chart-gap-OVERALL-SUMMARY"></canvas></div>
+          </div>
+        </div>
+
+        <div class="tables-layout" style="margin-top: 15px;">
+          <div class="table-container">
+            <h3>📍 Overall Area Summary (All Models)</h3>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('Area')}
+                <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <h3>🏢 Overall AP1 Summary (All Models)</h3>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('AP1')}
+                <tbody>${buildSimpleSummaryRows(overallAp1Agg)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-flex">
+              <h3>👤 Overall FT Name Summary (All Models)</h3>
+              <div class="filter-group">
+                <label for="filter-region-OVERALL-SUMMARY"><b>Filter Region:</b></label>
+                <select id="filter-region-OVERALL-SUMMARY" class="filter-select" onchange="filterFtTable('OVERALL-SUMMARY')">
+                  ${overallRegionOptions}
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('FT Name', 'Region')}
+                <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-flex">
+              <h3>🏪 Overall Dealer Summary (All Models)</h3>
+              <div class="filter-group">
+                <label for="filter-ap1-OVERALL-SUMMARY"><b>Filter AP1:</b></label>
+                <select id="filter-ap1-OVERALL-SUMMARY" class="filter-select" onchange="filterDealerTable('OVERALL-SUMMARY')">
+                  ${overallAp1Options}
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
+                <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      contentsContainer.insertBefore(overallDiv, contentsContainer.firstChild);
+
+      setTimeout(() => {
+        renderModelCharts('OVERALL-SUMMARY', {
+          status: [overallDoneModels, overallProgressModels, overallPendingModels],
+          areas: models,
+          ach: modelAchData,
+          target: modelTargetData,
+          actual: modelActualData
+        });
+      }, 50);
+    }
+
+    function renderModelCharts(safeModelId, data) {
+      ['status', 'ach', 'gap'].forEach(type => {
+        if (chartInstances[`${type}-${safeModelId}`]) chartInstances[`${type}-${safeModelId}`].destroy();
+      });
+
+      const isDark = document.body.classList.contains('dark-mode');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)';
+      const commonGridStyle = { color: gridColor, drawBorder: false };
+
+      const ctxStatus = document.getElementById(`chart-status-${safeModelId}`);
+      if (ctxStatus) {
+        chartInstances[`status-${safeModelId}`] = new Chart(ctxStatus, {
+          type: 'doughnut',
+          data: {
+            labels: ['DONE (100%+)', 'IN PROGRESS', 'NOT STARTED'],
+            datasets: [{ data: data.status, backgroundColor: ['#1428a0', '#38bdf8', '#cbd5e1'], borderWidth: 0, hoverOffset: 4 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            rotation: -90,
+            circumference: 180,
+            cutout: '75%',
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16, font: { size: 11, weight: '600' }, color: textColor } }
+            }
+          }
+        });
+      }
+
+      const ctxAch = document.getElementById(`chart-ach-${safeModelId}`);
+      if (ctxAch) {
+        chartInstances[`ach-${safeModelId}`] = new Chart(ctxAch, {
+          type: 'bar',
+          data: {
+            labels: data.areas,
+            datasets: [{ label: 'ACH %', data: data.ach, backgroundColor: '#1428a0', borderRadius: 8, borderSkipped: false, barThickness: 22 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: textColor } },
+              y: { beginAtZero: true, max: 100, grid: commonGridStyle, ticks: { font: { size: 11 }, color: textColor, callback: (value) => value + '%' } }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (context) => ` ACH: ${context.parsed.y}%` } }
+            }
+          }
+        });
+      }
+
+      const ctxGap = document.getElementById(`chart-gap-${safeModelId}`);
+      if (ctxGap) {
+        chartInstances[`gap-${safeModelId}`] = new Chart(ctxGap, {
+          type: 'bar',
+          data: {
+            labels: data.areas,
+            datasets: [
+              { label: 'Target HC', data: data.target, backgroundColor: isDark ? '#334155' : '#cbd5e1', borderRadius: 8, barThickness: 16 },
+              { label: 'Actual HC', data: data.actual, backgroundColor: '#10b981', borderRadius: 8, barThickness: 16 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: textColor } },
+              y: { beginAtZero: true, grid: commonGridStyle, ticks: { font: { size: 11 }, color: textColor } }
+            },
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 8, usePointStyle: true, padding: 16, font: { size: 11 }, color: textColor } }
+            }
+          }
+        });
+      }
+    }
+
+    setInterval(fetchCSVData, 60000);
+  </script>
+</body>
+</html>
