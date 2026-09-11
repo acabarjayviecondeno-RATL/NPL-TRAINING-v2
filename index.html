@@ -81,13 +81,8 @@
       padding: 24px;
       background-color: var(--bg-dashboard);
       color: var(--text-main);
-      -webkit-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
       transition: background-color 0.3s ease, color 0.3s ease;
     }
-
-    @media print { body { display: none !important; } }
 
     /* Login Overlay Styles - Solid Black Aesthetic */
     #login-overlay {
@@ -155,23 +150,6 @@
     }
     .login-card button:hover { opacity: 0.92; background-color: #1428a0; }
     #loading-log { display: none; margin-top: 12px; color: #a3a3a3; font-size: 0.85em; }
-
-    #security-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: var(--bg-dashboard);
-      z-index: 99999;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      font-size: 1.5em;
-      font-weight: bold;
-      color: #dc2626;
-    }
 
     #main-dashboard-container {
       display: none;
@@ -389,7 +367,7 @@
     #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
   </style>
 </head>
-<body oncontextmenu="return false;">
+<body>
 
   <!-- LOGIN POPUP OVERLAY WITH SOLID BLACK BACKGROUND -->
   <div id="login-overlay" style="display: none;">
@@ -403,8 +381,6 @@
       </form>
     </div>
   </div>
-
-  <div id="security-overlay">Screenshot & Saving Restricted for Security Purposes</div>
 
   <div id="main-dashboard-container">
     <div class="sticky-top-wrapper">
@@ -474,35 +450,6 @@
         console.error("Log error background sync:", err);
       });
     });
-
-    document.addEventListener('keydown', function(e) {
-      if (
-        e.keyCode === 44 ||
-        (e.ctrlKey && (e.keyCode === 83 || e.keyCode === 80 || e.keyCode === 85 || e.keyCode === 73)) ||
-        e.keyCode === 123
-      ) {
-        e.preventDefault();
-        showSecurityWarning("Action Restricted: Printing, Saving, or Capturing is disabled.");
-        return false;
-      }
-    });
-
-    window.addEventListener('blur', function() {
-      document.getElementById('security-overlay').style.display = 'flex';
-    });
-
-    window.addEventListener('focus', function() {
-      document.getElementById('security-overlay').style.display = 'none';
-    });
-
-    function showSecurityWarning(msg) {
-      const overlay = document.getElementById('security-overlay');
-      overlay.innerText = msg;
-      overlay.style.display = 'flex';
-      setTimeout(() => {
-        overlay.style.display = 'none';
-      }, 2000);
-    }
 
     function toggleNightMode() {
       document.body.classList.toggle('dark-mode');
