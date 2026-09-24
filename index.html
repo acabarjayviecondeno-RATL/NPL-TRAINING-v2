@@ -1063,6 +1063,22 @@
               </div>
 
               <div class="table-container">
+                <h3>🏪 Dealer Training Summary</h3>
+                <div class="table-header-flex">
+                  <label for="filter-ap1-${safeModelId}"><b>Filter AP1:</b></label>
+                  <select id="filter-ap1-${safeModelId}" class="filter-select" onchange="filterDealerTable('${safeModelId}')">
+                    ${ap1Options}
+                  </select>
+                </div>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('Dealer', 'AP1')}
+                    <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="table-container">
                 <div class="table-header-flex">
                   <h3>👤 FT Name Training Summary</h3>
                   <div class="filter-group">
@@ -1076,24 +1092,6 @@
                   <table>
                     ${buildHeaderHTML('FT Name', 'Region')}
                     <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="table-container">
-                <div class="table-header-flex">
-                  <h3>🏪 Dealer Training Summary</h3>
-                  <div class="filter-group">
-                    <label for="filter-ap1-${safeModelId}"><b>Filter AP1:</b></label>
-                    <select id="filter-ap1-${safeModelId}" class="filter-select" onchange="filterDealerTable('${safeModelId}')">
-                      ${ap1Options}
-                    </select>
-                  </div>
-                </div>
-                <div class="table-responsive-wrapper">
-                  <table>
-                    ${buildHeaderHTML('Dealer', 'AP1')}
-                    <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
                   </table>
                 </div>
               </div>
@@ -1344,24 +1342,6 @@
 
           <div class="table-container">
             <div class="table-header-flex">
-              <h3>👤 Overall FT Name Summary (All Models)</h3>
-              <div class="filter-group">
-                <label for="filter-region-OVERALL-SUMMARY"><b>Filter Region:</b></label>
-                <select id="filter-region-OVERALL-SUMMARY" class="filter-select" onchange="filterFtTable('OVERALL-SUMMARY')">
-                  ${overallRegionOptions}
-                </select>
-              </div>
-            </div>
-            <div class="table-responsive-wrapper">
-              <table>
-                ${buildOverallHeaderHTML('FT Name', 'Region')}
-                <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <div class="table-header-flex">
               <h3>🏪 Overall Dealer Summary (All Models)</h3>
               <div class="filter-group">
                 <label for="filter-ap1-OVERALL-SUMMARY"><b>Filter AP1:</b></label>
@@ -1374,6 +1354,24 @@
               <table>
                 ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
                 <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-flex">
+              <h3>👤 Overall FT Name Summary (All Models)</h3>
+              <div class="filter-group">
+                <label for="filter-region-OVERALL-SUMMARY"><b>Filter Region:</b></label>
+                <select id="filter-region-OVERALL-SUMMARY" class="filter-select" onchange="filterFtTable('OVERALL-SUMMARY')">
+                  ${overallRegionOptions}
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('FT Name', 'Region')}
+                <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
               </table>
             </div>
           </div>
