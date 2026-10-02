@@ -164,9 +164,14 @@
       body { padding: 12px; }
       .header { padding: 14px 18px !important; }
       .header h1 { font-size: 1.25em !important; }
+      
+      /* Inalis ang pagka-sticky kapag mobile view para mag-scroll nang sabay-sabay */
+      .sticky-top-container {
+        position: static !important;
+      }
     }
 
-    /* STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG */
+    /* STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG (Desktop view) */
     .sticky-top-container {
       position: sticky;
       top: 0;
@@ -236,7 +241,6 @@
       100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
 
-    /* UPDATED: Tinanggal ang puting background, border, at box-shadow para lumitaw na transparent */
     .tabs { 
       display: flex; 
       gap: 10px; 
@@ -1079,7 +1083,6 @@
 
           const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
 
-          // 1st row ng cards (Sticky)
           globalMainSummaryStore[model] = `
             <div class="cards-grid">
               <div class="card">
@@ -1130,7 +1133,6 @@
           contentDiv.id = `tab-${safeModelId}`;
           contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
 
-          // 2nd row ng cards (Na kasama sa tab content para mag-scroll)
           contentDiv.innerHTML = `
             <div class="cards-grid" style="margin-bottom: 20px;">
               <div class="card">
