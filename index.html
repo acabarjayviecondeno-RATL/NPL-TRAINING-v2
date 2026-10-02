@@ -160,20 +160,20 @@
       font-weight: bold !important;
     }
 
-    .sticky-top-wrapper {
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      .header { padding: 14px 18px !important; }
+      .header h1 { font-size: 1.25em !important; }
+    }
+
+    /* STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG */
+    .sticky-top-container {
       position: sticky;
       top: 0;
       z-index: 1000;
       background-color: var(--bg-dashboard);
       padding-top: 4px;
-      padding-bottom: 12px;
-    }
-
-    @media (max-width: 768px) {
-      body { padding: 12px; }
-      .sticky-top-wrapper { position: relative !important; top: initial !important; padding-top: 0; }
-      .header { padding: 14px 18px !important; }
-      .header h1 { font-size: 1.25em !important; }
+      padding-bottom: 4px;
     }
 
     .header {
@@ -236,7 +236,18 @@
       100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
 
-    .tabs { display: flex; gap: 10px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+    /* UPDATED: Tinanggal ang puting background, border, at box-shadow para lumitaw na transparent */
+    .tabs { 
+      display: flex; 
+      gap: 10px; 
+      margin-bottom: 16px; 
+      overflow-x: auto; 
+      padding: 4px 0px; 
+      background-color: transparent;
+      border: none;
+      box-shadow: none;
+    }
+    
     .tab-btn {
       padding: 10px 22px;
       border: none;
@@ -245,13 +256,15 @@
       cursor: pointer;
       border-radius: 14px;
       font-size: 0.88em;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
       transition: all 0.2s ease;
       white-space: nowrap;
+      border: 1px solid var(--border-color);
     }
     .tab-btn.active {
       background: var(--primary-blue);
       color: #ffffff;
+      border-color: var(--primary-blue);
       box-shadow: 0 8px 16px rgba(20, 40, 160, 0.25);
     }
     .tab-content { display: none; }
@@ -379,7 +392,9 @@
   </div>
 
   <div id="main-dashboard-container">
-    <div class="sticky-top-wrapper">
+    <!-- NAKA-STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG -->
+    <div class="sticky-top-container">
+      <!-- Header -->
       <div class="header">
         <div>
           <h1>NPL Dynamic Training Dashboard</h1>
@@ -393,11 +408,15 @@
           </div>
         </div>
       </div>
-
-      <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
+      
+      <!-- Tabs -->
       <div class="tabs" id="tabsContainer"></div>
+      
+      <!-- Main Summary Cards (Sticky) -->
       <div id="summaryCardsContainer"></div>
     </div>
+
+    <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
 
     <div id="contentsContainer"></div>
   </div>
@@ -470,7 +489,8 @@
 
     let activeModelTab = "OVERALL SUMMARY";
     const chartInstances = {};
-    let globalSummaryStore = {};
+    let globalMainSummaryStore = {};
+    let globalSubSummaryStore = {};
 
     Chart.defaults.font.family = "'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif";
 
@@ -593,8 +613,8 @@
         content.classList.toggle('active', content.id === `tab-${model.replace(/[^a-zA-Z0-9]/g, '-')}`);
       });
       
-      if (globalSummaryStore[model]) {
-        document.getElementById('summaryCardsContainer').innerHTML = globalSummaryStore[model];
+      if (globalMainSummaryStore[model]) {
+        document.getElementById('summaryCardsContainer').innerHTML = globalMainSummaryStore[model];
       }
     }
 
@@ -654,7 +674,7 @@
       summaryCardsContainer.innerHTML = '';
       contentsContainer.innerHTML = '';
 
-      globalSummaryStore = {};
+      globalMainSummaryStore = {};
 
       const overallFtAgg = {}, overallAreaAgg = {}, overallAp1Agg = {}, overallDealerAgg = {};
       const overallFtRegionMap = {}, overallDealerAp1Map = {};
@@ -1059,7 +1079,8 @@
 
           const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
 
-          globalSummaryStore[model] = `
+          // 1st row ng cards (Sticky)
+          globalMainSummaryStore[model] = `
             <div class="cards-grid">
               <div class="card">
                 <h4>Store Coverage</h4>
@@ -1097,28 +1118,6 @@
                 <div class="sub-value">Overall Target vs Actual</div>
               </div>
             </div>
-            <div class="cards-grid">
-              <div class="card">
-                <h4>Leading FT</h4>
-                <div class="value" style="font-size: 1.1em;">${leadFt.name}</div>
-                <div class="sub-value">${leadFt.sub}</div>
-              </div>
-              <div class="card">
-                <h4>Leading Dealer</h4>
-                <div class="value" style="font-size: 1.1em;">${leadDealer.name}</div>
-                <div class="sub-value">${leadDealer.sub}</div>
-              </div>
-              <div class="card">
-                <h4>Leading Area</h4>
-                <div class="value" style="font-size: 1.1em;">${leadArea.name}</div>
-                <div class="sub-value">${leadArea.sub}</div>
-              </div>
-              <div class="card">
-                <h4>Model Overall ACH %</h4>
-                <div class="value">${overallAch}%</div>
-                <div class="sub-value">Total Target vs Actual</div>
-              </div>
-            </div>
           `;
 
           const uniqueRegions = Array.from(rsiRegionsSet).sort();
@@ -1131,7 +1130,31 @@
           contentDiv.id = `tab-${safeModelId}`;
           contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
 
+          // 2nd row ng cards (Na kasama sa tab content para mag-scroll)
           contentDiv.innerHTML = `
+            <div class="cards-grid" style="margin-bottom: 20px;">
+              <div class="card">
+                <h4>LEADING FT</h4>
+                <div class="value" style="font-size: 1.1em;">${leadFt.name}</div>
+                <div class="sub-value">${leadFt.sub}</div>
+              </div>
+              <div class="card">
+                <h4>LEADING DEALER</h4>
+                <div class="value" style="font-size: 1.1em;">${leadDealer.name}</div>
+                <div class="sub-value">${leadDealer.sub}</div>
+              </div>
+              <div class="card">
+                <h4>LEADING AREA</h4>
+                <div class="value" style="font-size: 1.1em;">${leadArea.name}</div>
+                <div class="sub-value">${leadArea.sub}</div>
+              </div>
+              <div class="card">
+                <h4>MODEL OVERALL ACH %</h4>
+                <div class="value">${overallAch}%</div>
+                <div class="sub-value">Total Target vs Actual</div>
+              </div>
+            </div>
+
             <div class="charts-grid">
               <div class="chart-card">
                 <h4>Area Status Overview</h4>
@@ -1249,31 +1272,7 @@
       const storeAchVal = targetStoreCount > 0 ? ((actualStoreCount / targetStoreCount) * 100) : 0;
       const storeAch = storeAchVal.toFixed(1);
 
-      const getOverallLeadingItem = (aggObj) => {
-        const keys = Object.keys(aggObj);
-        if (keys.length === 0) return { name: 'N/A', sub: '0 HC (0.0% ACH)' };
-        let bestKey = keys[0];
-        let bestActual = -1;
-        let bestAch = -1;
-        keys.forEach(k => {
-          const r = aggObj[k];
-          const tTgt = r.targetFF + r.targetFSM;
-          const tAct = Math.round(r.actualFF + r.actualFSM);
-          const ach = tTgt > 0 ? ((tAct / tTgt) * 100) : 0;
-          if (tAct > bestActual || (tAct === bestActual && ach > bestAch)) {
-            bestActual = tAct;
-            bestAch = ach;
-            bestKey = k;
-          }
-        });
-        return { name: bestKey, sub: `${bestActual} HC (${bestAch.toFixed(1)}% ACH)` };
-      };
-
-      const overallLeadFt = getOverallLeadingItem(overallFtAgg);
-      const overallLeadDealer = getOverallLeadingItem(overallDealerAgg);
-      const overallLeadArea = getOverallLeadingItem(overallAreaAgg);
-
-      globalSummaryStore["OVERALL SUMMARY"] = `
+      globalMainSummaryStore["OVERALL SUMMARY"] = `
         <div class="cards-grid">
           <div class="card">
             <h4>Store Coverage</h4>
@@ -1314,7 +1313,7 @@
       `;
 
       if (activeModelTab === "OVERALL SUMMARY") {
-        summaryCardsContainer.innerHTML = globalSummaryStore["OVERALL SUMMARY"];
+        summaryCardsContainer.innerHTML = globalMainSummaryStore["OVERALL SUMMARY"];
       }
 
       const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
