@@ -257,7 +257,7 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 16px; }
     .card {
       background: var(--card-bg);
       padding: 20px;
@@ -305,7 +305,6 @@
       outline: none;
     }
 
-    /* Table Wrapper para magka-radius ang mismong gilid ng table at may horizontal scroll kung kinakailangan */
     .table-responsive-wrapper {
       width: 100%;
       overflow-x: auto;
@@ -316,10 +315,8 @@
     table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
     th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; color: var(--text-main); }
     
-    /* Straight/diretso ang mga gilid sa loob ng table */
     th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 0 !important; }
 
-    /* Hover effect para sa buong row ng table */
     tbody tr {
       transition: background-color 0.15s ease;
     }
@@ -330,15 +327,14 @@
       background-color: rgba(34, 211, 238, 0.08) !important;
     }
 
-    .th-ff { background-color: var(--th-ff-bg) !important; color: var(--th-ff-text) !important; }
-    .th-fsm { background-color: var(--th-fsm-bg) !important; color: var(--th-fsm-text) !important; }
-    .th-total { background-color: var(--th-total-bg) !important; color: var(--th-total-text) !important; }
+    .th-ff { background-color: var(--th-ff-bg) !important; color: var(--th-ff-text) !important; text-align: center; }
+    .th-fsm { background-color: var(--th-fsm-bg) !important; color: var(--th-fsm-text) !important; text-align: center; }
+    .th-total { background-color: var(--th-total-bg) !important; color: var(--th-total-text) !important; text-align: center; }
 
     .td-ff { background-color: var(--td-ff-bg) !important; }
     .td-fsm { background-color: var(--td-fsm-bg) !important; }
     .td-models { background-color: var(--td-models-bg) !important; color: var(--secondary-cyan) !important; }
 
-    /* Conditional Formatting Color Classes */
     .bg-target-red { background-color: #fee2e2 !important; color: #991b1b !important; }
     .bg-target-orange { background-color: #ffedd5 !important; color: #c2410c !important; }
     .bg-target-green { background-color: #dcfce7 !important; color: #166534 !important; }
@@ -400,7 +396,7 @@
 
       <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
       <div class="tabs" id="tabsContainer"></div>
-      <div id="summaryCardsContainer" class="cards-grid"></div>
+      <div id="summaryCardsContainer"></div>
     </div>
 
     <div id="contentsContainer"></div>
@@ -674,6 +670,8 @@
       const modelActualData = [];
       let overallDoneModels = 0, overallProgressModels = 0, overallPendingModels = 0;
 
+      const globalTimelineCounts = {};
+
       const allTabs = ["OVERALL SUMMARY", ...models];
 
       allTabs.forEach((tabName) => {
@@ -731,6 +729,14 @@
           const rsiAp1Set = new Set();
           let totalTargetOverall = 0, totalActualOverall = 0;
 
+          let fsmDone = 0, fsmOn = 0, fsmOff = 0;
+          let ffDone = 0, ffOn = 0, ffOff = 0;
+          let storeDone = 0, storeOn = 0, storeOff = 0;
+
+          const modelStoreStatusMap = {};
+          const modelUniqueStoresSet = new Set();
+          const modelStoreMaxMap = {};
+
           dataRows.forEach((row) => {
             if (rsiCol !== -1) {
               const rsiVal = row[rsiCol] ? row[rsiCol].toString().trim() : '0';
@@ -772,7 +778,10 @@
             if (targetFF === 0 && maxFreqFF === 0) targetFF = 1;
 
             const storeIdentifier = mcs || storeName;
-            if (storeIdentifier) uniqueStoresSet.add(storeIdentifier);
+            if (storeIdentifier) {
+              uniqueStoresSet.add(storeIdentifier);
+              modelUniqueStoresSet.add(storeIdentifier);
+            }
             if (ft && ft !== 'NO FT TAGGING') uniqueFtSet.add(ft);
 
             if (area && area !== 'N/A') { rsiRegionsSet.add(area); overallRsiRegions.add(area); }
@@ -797,6 +806,24 @@
             totalTargetOverall += rowTarget;
             totalActualOverall += rowActual;
 
+            const fsmAch = targetFSM > 0 ? ((storeActualFSM / targetFSM) * 100) : (storeActualFSM > 0 ? 100 : 0);
+            const fsmTimeline = computeTimelineStatus(lastFreqStart, lastFreqEnd, fsmAch);
+            if (fsmTimeline.text === "Done") fsmDone++;
+            else if (fsmTimeline.text === "On-Track") fsmOn++;
+            else fsmOff++;
+
+            const ffAch = targetFF > 0 ? ((storeActualFF / targetFF) * 100) : (storeActualFF > 0 ? 100 : 0);
+            const ffTimeline = computeTimelineStatus(lastFreqStart, lastFreqEnd, ffAch);
+            if (ffTimeline.text === "Done") ffDone++;
+            else if (ffTimeline.text === "On-Track") ffOn++;
+            else ffOff++;
+
+            const storeAch = rowTarget > 0 ? ((rowActual / rowTarget) * 100) : 0;
+            const storeTimeline = computeTimelineStatus(lastFreqStart, lastFreqEnd, storeAch);
+            if (storeIdentifier) {
+              modelStoreStatusMap[storeIdentifier] = storeTimeline.text;
+            }
+
             if (!storeMaxMap[storeIdentifier]) {
               storeMaxMap[storeIdentifier] = { targetFF: targetFF, actualFF: storeActualFF, targetFSM: targetFSM, actualFSM: storeActualFSM };
             } else {
@@ -804,6 +831,15 @@
               storeMaxMap[storeIdentifier].actualFF = Math.max(storeMaxMap[storeIdentifier].actualFF, storeActualFF);
               storeMaxMap[storeIdentifier].targetFSM = Math.max(storeMaxMap[storeIdentifier].targetFSM, targetFSM);
               storeMaxMap[storeIdentifier].actualFSM = Math.max(storeMaxMap[storeIdentifier].actualFSM, storeActualFSM);
+            }
+
+            if (!modelStoreMaxMap[storeIdentifier]) {
+              modelStoreMaxMap[storeIdentifier] = { targetFF: targetFF, actualFF: storeActualFF, targetFSM: targetFSM, actualFSM: storeActualFSM };
+            } else {
+              modelStoreMaxMap[storeIdentifier].targetFF = Math.max(modelStoreMaxMap[storeIdentifier].targetFF, targetFF);
+              modelStoreMaxMap[storeIdentifier].actualFF = Math.max(modelStoreMaxMap[storeIdentifier].actualFF, storeActualFF);
+              modelStoreMaxMap[storeIdentifier].targetFSM = Math.max(modelStoreMaxMap[storeIdentifier].targetFSM, targetFSM);
+              modelStoreMaxMap[storeIdentifier].actualFSM = Math.max(modelStoreMaxMap[storeIdentifier].actualFSM, storeActualFSM);
             }
 
             const initAggRow = () => {
@@ -841,6 +877,18 @@
             addDataToOverall(overallDealerAgg, dealer);
           });
 
+          Object.values(modelStoreStatusMap).forEach(statusText => {
+            if (statusText === "Done") storeDone++;
+            else if (statusText === "On-Track") storeOn++;
+            else if (statusText === "Off-Track") storeOff++;
+          });
+
+          globalTimelineCounts[model] = {
+            fsm: { done: fsmDone, onTrack: fsmOn, offTrack: fsmOff, total: fsmDone + fsmOn + fsmOff },
+            ff: { done: ffDone, onTrack: ffOn, offTrack: ffOff, total: ffDone + ffOn + ffOff },
+            store: { done: storeDone, onTrack: storeOn, offTrack: storeOff, total: storeDone + storeOn + storeOff }
+          };
+
           totalActualOverall = Math.round(totalActualOverall);
           const modelAchVal = totalTargetOverall > 0 ? parseFloat(((totalActualOverall / totalTargetOverall) * 100).toFixed(1)) : 0;
 
@@ -851,6 +899,18 @@
           if (modelAchVal >= 100) overallDoneModels++;
           else if (totalActualOverall > 0) overallProgressModels++;
           else overallPendingModels++;
+
+          let modelTargetStoreCount = 0;
+          let modelActualStoreCount = 0;
+          Object.keys(modelStoreMaxMap).forEach(sId => {
+            const item = modelStoreMaxMap[sId];
+            const sTgt = item.targetFF + item.targetFSM;
+            const sAct = Math.round(item.actualFF + item.actualFSM);
+            if (sTgt > 0) modelTargetStoreCount++;
+            if (sAct > 0) modelActualStoreCount++;
+          });
+          const modelStoreAchVal = modelTargetStoreCount > 0 ? ((modelActualStoreCount / modelTargetStoreCount) * 100) : 0;
+          const modelStoreAch = modelStoreAchVal.toFixed(1);
 
           const areaLabels = Object.keys(areaAgg);
           const areaAchData = [], areaTargetData = [], areaActualData = [];
@@ -879,6 +939,34 @@
             else if (totalActual > 0) progressCount++;
             else pendingCount++;
           });
+
+          const getLeadingItem = (aggObj) => {
+            const keys = Object.keys(aggObj);
+            if (keys.length === 0) return { name: 'N/A', sub: '0 HC (0.0% ACH)' };
+            let bestKey = keys[0];
+            let bestActual = -1;
+            let bestAch = -1;
+            keys.forEach(k => {
+              const r = aggObj[k];
+              const tTgt = r.targetFF + r.targetFSM;
+              let sFF = 0; for(let f=1; f<=maxFreqFF; f++) sFF += (r.freqsFF[f]||0);
+              let aFF = maxFreqFF > 0 ? (sFF/maxFreqFF) : r.targetFF;
+              let sFSM = 0; for(let f=1; f<=maxFreqFSM; f++) sFSM += (r.freqsFSM[f]||0);
+              let aFSM = maxFreqFSM > 0 ? (sFSM/maxFreqFSM) : r.targetFSM;
+              let tAct = Math.round(aFF + aFSM);
+              let ach = tTgt > 0 ? ((tAct / tTgt) * 100) : 0;
+              if (tAct > bestActual || (tAct === bestActual && ach > bestAch)) {
+                bestActual = tAct;
+                bestAch = ach;
+                bestKey = k;
+              }
+            });
+            return { name: bestKey, sub: `${bestActual} HC (${bestAch.toFixed(1)}% ACH)` };
+          };
+
+          const leadFt = getLeadingItem(ftAgg);
+          const leadDealer = getLeadingItem(dealerAgg);
+          const leadArea = getLeadingItem(areaAgg);
 
           const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
             const keys = Object.keys(aggObj);
@@ -956,9 +1044,9 @@
                 <tr>
                   <th rowspan="2">${groupTitle}</th>
                   ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
-                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>` : ''}
-                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" class="th-fsm" style="text-align:center;">FSM</th>` : ''}
-                  <th colspan="5" class="th-total" style="text-align:center;">TOTAL SUMMARY</th>
+                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" class="th-ff">FIELD FORCE (FF)</th>` : ''}
+                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" class="th-fsm">FSM</th>` : ''}
+                  <th colspan="5" class="th-total">TOTAL SUMMARY</th>
                 </tr>
                 <tr>
                   ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
@@ -969,49 +1057,67 @@
             `;
           };
 
-          const getLeadingGroup = (aggObj) => {
-            const keys = Object.keys(aggObj);
-            if (keys.length === 0) return { name: 'NO DATA', sub: 'No records available' };
-
-            const allList = [];
-            for (const key of keys) {
-              const r = aggObj[key];
-              const totalTarget = r.targetFF + r.targetFSM;
-              const totalActual = Math.round(r.targetFF + r.targetFSM);
-              const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
-              allList.push({ key, totalActual, ach });
-            }
-
-            allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
-            const winner = allList[0];
-            return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH)` };
-          };
-
-          const leadingFT = getLeadingGroup(ftAgg);
-          const leadingDealer = getLeadingGroup(dealerAgg);
-          const leadingArea = getLeadingGroup(areaAgg);
           const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
 
           globalSummaryStore[model] = `
-            <div class="card">
-              <h4>Leading FT</h4>
-              <div class="value">${leadingFT.name}</div>
-              <div class="sub-value">${leadingFT.sub}</div>
+            <div class="cards-grid">
+              <div class="card">
+                <h4>Store Coverage</h4>
+                <div class="value">${modelUniqueStoresSet.size}</div>
+                <div class="sub-value">Distinct Active Stores</div>
+              </div>
+              <div class="card">
+                <h4>Target Store Count</h4>
+                <div class="value">${modelTargetStoreCount}</div>
+                <div class="sub-value">Total Stores with Target</div>
+              </div>
+              <div class="card">
+                <h4>Actual Store Count</h4>
+                <div class="value">${modelActualStoreCount}</div>
+                <div class="sub-value">Total Stores with Actual</div>
+              </div>
+              <div class="card">
+                <h4>Store ACH %</h4>
+                <div class="value">${modelStoreAch}%</div>
+                <div class="sub-value">Actual vs Target Stores</div>
+              </div>
+              <div class="card">
+                <h4>Total Target HC</h4>
+                <div class="value">${totalTargetOverall}</div>
+                <div class="sub-value">Max Headcount Target</div>
+              </div>
+              <div class="card">
+                <h4>Total Actual HC</h4>
+                <div class="value">${totalActualOverall}</div>
+                <div class="sub-value">Max Headcount Actual</div>
+              </div>
+              <div class="card">
+                <h4>Model Overall ACH %</h4>
+                <div class="value">${overallAch}%</div>
+                <div class="sub-value">Overall Target vs Actual</div>
+              </div>
             </div>
-            <div class="card">
-              <h4>Leading Dealer</h4>
-              <div class="value">${leadingDealer.name}</div>
-              <div class="sub-value">${leadingDealer.sub}</div>
-            </div>
-            <div class="card">
-              <h4>Leading Area</h4>
-              <div class="value">${leadingArea.name}</div>
-              <div class="sub-value">${leadingArea.sub}</div>
-            </div>
-            <div class="card">
-              <h4>Model Overall ACH %</h4>
-              <div class="value">${overallAch}%</div>
-              <div class="sub-value">Total Target vs Actual</div>
+            <div class="cards-grid">
+              <div class="card">
+                <h4>Leading FT</h4>
+                <div class="value" style="font-size: 1.1em;">${leadFt.name}</div>
+                <div class="sub-value">${leadFt.sub}</div>
+              </div>
+              <div class="card">
+                <h4>Leading Dealer</h4>
+                <div class="value" style="font-size: 1.1em;">${leadDealer.name}</div>
+                <div class="sub-value">${leadDealer.sub}</div>
+              </div>
+              <div class="card">
+                <h4>Leading Area</h4>
+                <div class="value" style="font-size: 1.1em;">${leadArea.name}</div>
+                <div class="sub-value">${leadArea.sub}</div>
+              </div>
+              <div class="card">
+                <h4>Model Overall ACH %</h4>
+                <div class="value">${overallAch}%</div>
+                <div class="sub-value">Total Target vs Actual</div>
+              </div>
             </div>
           `;
 
@@ -1117,46 +1223,93 @@
       let grandTotalTarget = 0;
       let grandTotalActual = 0;
 
+      let targetStoreCount = 0;
+      let actualStoreCount = 0;
+
       Object.keys(storeMaxMap).forEach(sId => {
         const item = storeMaxMap[sId];
-        grandTotalTarget += (item.targetFF + item.targetFSM);
-        grandTotalActual += (item.actualFF + item.actualFSM);
+        const storeTgt = item.targetFF + item.targetFSM;
+        const storeAct = Math.round(item.actualFF + item.actualFSM);
+
+        grandTotalTarget += storeTgt;
+        grandTotalActual += storeAct;
+
+        if (storeTgt > 0) {
+          targetStoreCount++;
+        }
+        if (storeAct > 0) {
+          actualStoreCount++;
+        }
       });
 
       grandTotalActual = Math.round(grandTotalActual);
       const grandAchVal = grandTotalTarget > 0 ? ((grandTotalActual / grandTotalTarget) * 100) : 0;
       const grandAch = grandAchVal.toFixed(1);
 
+      const storeAchVal = targetStoreCount > 0 ? ((actualStoreCount / targetStoreCount) * 100) : 0;
+      const storeAch = storeAchVal.toFixed(1);
+
+      const getOverallLeadingItem = (aggObj) => {
+        const keys = Object.keys(aggObj);
+        if (keys.length === 0) return { name: 'N/A', sub: '0 HC (0.0% ACH)' };
+        let bestKey = keys[0];
+        let bestActual = -1;
+        let bestAch = -1;
+        keys.forEach(k => {
+          const r = aggObj[k];
+          const tTgt = r.targetFF + r.targetFSM;
+          const tAct = Math.round(r.actualFF + r.actualFSM);
+          const ach = tTgt > 0 ? ((tAct / tTgt) * 100) : 0;
+          if (tAct > bestActual || (tAct === bestActual && ach > bestAch)) {
+            bestActual = tAct;
+            bestAch = ach;
+            bestKey = k;
+          }
+        });
+        return { name: bestKey, sub: `${bestActual} HC (${bestAch.toFixed(1)}% ACH)` };
+      };
+
+      const overallLeadFt = getOverallLeadingItem(overallFtAgg);
+      const overallLeadDealer = getOverallLeadingItem(overallDealerAgg);
+      const overallLeadArea = getOverallLeadingItem(overallAreaAgg);
+
       globalSummaryStore["OVERALL SUMMARY"] = `
-        <div class="card">
-          <h4>Active Models</h4>
-          <div class="value">${activeModelsCount}</div>
-          <div class="sub-value">In Progress (&lt;100% ACH)</div>
-        </div>
-        <div class="card">
-          <h4>Total Models</h4>
-          <div class="value">${totalModelsCount}</div>
-          <div class="sub-value">Total NPL Lineup</div>
-        </div>
-        <div class="card">
-          <h4>Store Coverage</h4>
-          <div class="value">${uniqueStoresSet.size}</div>
-          <div class="sub-value">Distinct Active Stores</div>
-        </div>
-        <div class="card">
-          <h4>Total Target HC</h4>
-          <div class="value">${grandTotalTarget}</div>
-          <div class="sub-value">Max Headcount Target</div>
-        </div>
-        <div class="card">
-          <h4>Total Actual HC</h4>
-          <div class="value">${grandTotalActual}</div>
-          <div class="sub-value">Max Headcount Actual</div>
-        </div>
-        <div class="card">
-          <h4>Grand Overall ACH %</h4>
-          <div class="value">${grandAch}%</div>
-          <div class="sub-value">Overall Target vs Actual</div>
+        <div class="cards-grid">
+          <div class="card">
+            <h4>Store Coverage</h4>
+            <div class="value">${uniqueStoresSet.size}</div>
+            <div class="sub-value">Distinct Active Stores</div>
+          </div>
+          <div class="card">
+            <h4>Target Store Count</h4>
+            <div class="value">${targetStoreCount}</div>
+            <div class="sub-value">Total Stores with Target</div>
+          </div>
+          <div class="card">
+            <h4>Actual Store Count</h4>
+            <div class="value">${actualStoreCount}</div>
+            <div class="sub-value">Total Stores with Actual</div>
+          </div>
+          <div class="card">
+            <h4>Store ACH %</h4>
+            <div class="value">${storeAch}%</div>
+            <div class="sub-value">Actual vs Target Stores</div>
+          </div>
+          <div class="card">
+            <h4>Total Target HC</h4>
+            <div class="value">${grandTotalTarget}</div>
+            <div class="sub-value">Max Headcount Target</div>
+          </div>
+          <div class="card">
+            <h4>Total Actual HC</h4>
+            <div class="value">${grandTotalActual}</div>
+            <div class="sub-value">Max Headcount Actual</div>
+          </div>
+          <div class="card">
+            <h4>Grand Overall ACH %</h4>
+            <div class="value">${grandAch}%</div>
+            <div class="sub-value">Overall Target vs Actual</div>
+          </div>
         </div>
       `;
 
@@ -1269,16 +1422,16 @@
         }).join('');
       };
 
-      const buildOverallHeaderHTML = (groupTitle, extraColName = '', isDealer = false) => {
+      const overallHeaderHTML = (groupTitle, extraColName = '', isDealer = false) => {
         return `
           <thead>
             <tr>
               <th rowspan="2">${groupTitle}</th>
               ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
               ${isDealer ? `<th rowspan="2" style="text-align:center;">Models Covered</th>` : ''}
-              <th colspan="3" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>
-              <th colspan="3" class="th-fsm" style="text-align:center;">FSM</th>
-              <th colspan="4" class="th-total" style="text-align:center;">TOTAL OVERALL SUMMARY</th>
+              <th colspan="3" class="th-ff">FIELD FORCE (FF)</th>
+              <th colspan="3" class="th-fsm">FSM</th>
+              <th colspan="4" class="th-total">TOTAL OVERALL SUMMARY</th>
             </tr>
             <tr>
               <th class="th-ff">Target</th>
@@ -1294,6 +1447,33 @@
             </tr>
           </thead>
         `;
+      };
+
+      const buildTimelineSummaryRows = () => {
+        let rowsHtml = '';
+        models.forEach(model => {
+          const counts = globalTimelineCounts[model] || {
+            fsm: { done: 0, onTrack: 0, offTrack: 0, total: 0 },
+            ff: { done: 0, onTrack: 0, offTrack: 0, total: 0 },
+            store: { done: 0, onTrack: 0, offTrack: 0, total: 0 }
+          };
+
+          rowsHtml += `
+            <tr>
+              <td><b>${model}</b></td>
+              <td style="text-align:center;" class="td-ff"><span class="badge bg-ontrack">${counts.ff.onTrack}</span></td>
+              <td style="text-align:center;" class="td-ff"><span class="badge bg-offtrack">${counts.ff.offTrack}</span></td>
+              <td style="text-align:center;" class="td-ff"><span class="badge bg-done">${counts.ff.done}</span></td>
+              <td style="text-align:center;" class="td-fsm"><span class="badge bg-ontrack">${counts.fsm.onTrack}</span></td>
+              <td style="text-align:center;" class="td-fsm"><span class="badge bg-offtrack">${counts.fsm.offTrack}</span></td>
+              <td style="text-align:center;" class="td-fsm"><span class="badge bg-done">${counts.fsm.done}</span></td>
+              <td style="text-align:center;"><span class="badge bg-ontrack">${counts.store.onTrack}</span></td>
+              <td style="text-align:center;"><span class="badge bg-offtrack">${counts.store.offTrack}</span></td>
+              <td style="text-align:center;"><span class="badge bg-done">${counts.store.done}</span></td>
+            </tr>
+          `;
+        });
+        return rowsHtml;
       };
 
       const overallRegionOptions = ['ALL', ...Array.from(overallRsiRegions).sort()].map(r => `<option value="${r}">${r}</option>`).join('');
@@ -1321,10 +1501,40 @@
 
         <div class="tables-layout" style="margin-top: 15px;">
           <div class="table-container">
+            <h3>⏱ Timeline Status Breakdown (Per Model)</h3>
+            <div class="table-responsive-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th rowspan="2">Model</th>
+                    <th colspan="3" class="th-ff">Field Force (FF)</th>
+                    <th colspan="3" class="th-fsm">FSM</th>
+                    <th colspan="3" class="th-total">Store Count</th>
+                  </tr>
+                  <tr>
+                    <th class="th-ff" style="text-align:center;">On Track</th>
+                    <th class="th-ff" style="text-align:center;">Off Track</th>
+                    <th class="th-ff" style="text-align:center;">Done</th>
+                    <th class="th-fsm" style="text-align:center;">On Track</th>
+                    <th class="th-fsm" style="text-align:center;">Off Track</th>
+                    <th class="th-fsm" style="text-align:center;">Done</th>
+                    <th class="th-total" style="text-align:center;">On Track</th>
+                    <th class="th-total" style="text-align:center;">Off Track</th>
+                    <th class="th-total" style="text-align:center;">Done</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${buildTimelineSummaryRows()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="table-container">
             <h3>📍 Overall Area Summary (All Models)</h3>
             <div class="table-responsive-wrapper">
               <table>
-                ${buildOverallHeaderHTML('Area')}
+                ${overallHeaderHTML('Area')}
                 <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
               </table>
             </div>
@@ -1334,25 +1544,23 @@
             <h3>🏢 Overall AP1 Summary (All Models)</h3>
             <div class="table-responsive-wrapper">
               <table>
-                ${buildOverallHeaderHTML('AP1')}
+                ${overallHeaderHTML('AP1')}
                 <tbody>${buildSimpleSummaryRows(overallAp1Agg)}</tbody>
               </table>
             </div>
           </div>
 
           <div class="table-container">
+            <h3>🏪 Overall Dealer Summary (All Models)</h3>
             <div class="table-header-flex">
-              <h3>🏪 Overall Dealer Summary (All Models)</h3>
-              <div class="filter-group">
-                <label for="filter-ap1-OVERALL-SUMMARY"><b>Filter AP1:</b></label>
-                <select id="filter-ap1-OVERALL-SUMMARY" class="filter-select" onchange="filterDealerTable('OVERALL-SUMMARY')">
-                  ${overallAp1Options}
-                </select>
-              </div>
+              <label for="filter-ap1-OVERALL-SUMMARY"><b>Filter AP1:</b></label>
+              <select id="filter-ap1-OVERALL-SUMMARY" class="filter-select" onchange="filterDealerTable('OVERALL-SUMMARY')">
+                ${overallAp1Options}
+              </select>
             </div>
             <div class="table-responsive-wrapper">
               <table>
-                ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
+                ${overallHeaderHTML('Dealer', 'AP1', true)}
                 <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
               </table>
             </div>
@@ -1370,7 +1578,7 @@
             </div>
             <div class="table-responsive-wrapper">
               <table>
-                ${buildOverallHeaderHTML('FT Name', 'Region')}
+                ${overallHeaderHTML('FT Name', 'Region')}
                 <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
               </table>
             </div>
