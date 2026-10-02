@@ -165,13 +165,11 @@
       .header { padding: 14px 18px !important; }
       .header h1 { font-size: 1.25em !important; }
       
-      /* Inalis ang pagka-sticky kapag mobile view para mag-scroll nang sabay-sabay */
       .sticky-top-container {
         position: static !important;
       }
     }
 
-    /* STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG (Desktop view) */
     .sticky-top-container {
       position: sticky;
       top: 0;
@@ -334,6 +332,15 @@
     
     th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 0 !important; }
 
+    /* PAG-CENTER NG DATA MALIBAN SA UNANG KOLUM */
+    table td:not(:first-child) {
+      text-align: center !important;
+    }
+
+    table th:not(:first-child) {
+      text-align: center !important;
+    }
+
     tbody tr {
       transition: background-color 0.15s ease;
     }
@@ -396,9 +403,7 @@
   </div>
 
   <div id="main-dashboard-container">
-    <!-- NAKA-STICKY CONTAINER PARA SA HEADER, TABS, AT MAIN SUMMARY CARDS LAMANG -->
     <div class="sticky-top-container">
-      <!-- Header -->
       <div class="header">
         <div>
           <h1>NPL Dynamic Training Dashboard</h1>
@@ -413,10 +418,8 @@
         </div>
       </div>
       
-      <!-- Tabs -->
       <div class="tabs" id="tabsContainer"></div>
       
-      <!-- Main Summary Cards (Sticky) -->
       <div id="summaryCardsContainer"></div>
     </div>
 
@@ -426,7 +429,6 @@
   </div>
 
   <script>
-    // GOOGLE APPS SCRIPT WEB APP URL FOR LOG SHEET
     const LOG_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx61rfmLTrn7MlVQr9h-Bsv02KoLoBFQJ2DBfQMQ4_0XzrG1vOu6v_OJl_4hg-SppLiKg/exec";
 
     const loginForm = document.getElementById('loginForm');
@@ -688,6 +690,7 @@
       const uniqueStoresSet = new Set();
       const uniqueFtSet = new Set();
       const storeMaxMap = {};
+      const allStoresMasterMap = {};
 
       const modelAchData = [];
       const modelTargetData = [];
@@ -866,6 +869,34 @@
               modelStoreMaxMap[storeIdentifier].actualFSM = Math.max(modelStoreMaxMap[storeIdentifier].actualFSM, storeActualFSM);
             }
 
+            // MASTER STORE MAP PARA SA OVERALL SUMMARY NA GAMIT ANG MATH.MAX ACROSS MODELS
+            if (storeIdentifier) {
+              if (!allStoresMasterMap[storeIdentifier]) {
+                allStoresMasterMap[storeIdentifier] = {
+                  area: area,
+                  dealer: dealer,
+                  ap1: ap1,
+                  ft: ft,
+                  targetFF: targetFF,
+                  actualFF: storeActualFF,
+                  targetFSM: targetFSM,
+                  actualFSM: storeActualFSM,
+                  modelsSet: new Set([model])
+                };
+              } else {
+                const existing = allStoresMasterMap[storeIdentifier];
+                existing.targetFF = Math.max(existing.targetFF, targetFF);
+                existing.actualFF = Math.max(existing.actualFF, storeActualFF);
+                existing.targetFSM = Math.max(existing.targetFSM, targetFSM);
+                existing.actualFSM = Math.max(existing.actualFSM, storeActualFSM);
+                existing.modelsSet.add(model);
+                if (area && area !== 'N/A') existing.area = area;
+                if (dealer && dealer !== 'N/A') existing.dealer = dealer;
+                if (ap1 && ap1 !== 'N/A') existing.ap1 = ap1;
+                if (ft && ft !== 'NO FT TAGGING') existing.ft = ft;
+              }
+            }
+
             const initAggRow = () => {
               const obj = { targetFF: 0, targetFSM: 0, freqsFF: {}, freqsFSM: {} };
               for (let f = 1; f <= maxFreqFF; f++) obj.freqsFF[f] = 0;
@@ -885,26 +916,12 @@
             addDataToAgg(areaAgg, area);
             addDataToAgg(ap1Agg, ap1);
             addDataToAgg(dealerAgg, dealer);
-
-            const addDataToOverall = (ovObj, key) => {
-              if (!ovObj[key]) ovObj[key] = { targetFF: 0, actualFF: 0, targetFSM: 0, actualFSM: 0, modelsSet: new Set() };
-              ovObj[key].targetFF += targetFF;
-              ovObj[key].actualFF += storeActualFF;
-              ovObj[key].targetFSM += targetFSM;
-              ovObj[key].actualFSM += storeActualFSM;
-              if (rowTarget > 0 || rowActual > 0) ovObj[key].modelsSet.add(model);
-            };
-
-            addDataToOverall(overallFtAgg, ft);
-            addDataToOverall(overallAreaAgg, area);
-            addDataToOverall(overallAp1Agg, ap1);
-            addDataToOverall(overallDealerAgg, dealer);
           });
 
           Object.values(modelStoreStatusMap).forEach(statusText => {
             if (statusText === "Done") storeDone++;
             else if (statusText === "On-Track") storeOn++;
-            else if (statusText === "Off-Track") storeOff++;
+            else storeOff++;
           });
 
           globalTimelineCounts[model] = {
@@ -1242,8 +1259,36 @@
         }
       });
 
-      const activeModelsCount = overallProgressModels + overallPendingModels;
-      const totalModelsCount = models.length;
+      // PROSESUHIN ANG OVERALL AGGREGATIONS MULA SA MASTER STORE MAP
+      Object.values(allStoresMasterMap).forEach(store => {
+        const area = store.area || 'N/A';
+        const dealer = store.dealer || 'N/A';
+        const ap1 = store.ap1 || 'N/A';
+        const ft = store.ft || 'NO FT TAGGING';
+
+        if (area && area !== 'N/A') overallRsiRegions.add(area);
+        if (ap1 && ap1 !== 'N/A') overallRsiAp1s.add(ap1);
+
+        overallFtRegionMap[ft] = area;
+        overallDealerAp1Map[dealer] = ap1;
+        if (ft && ft !== 'NO FT TAGGING') uniqueFtSet.add(ft);
+
+        const helperAdd = (aggObj, key) => {
+          if (!aggObj[key]) {
+            aggObj[key] = { targetFF: 0, actualFF: 0, targetFSM: 0, actualFSM: 0, modelsSet: new Set() };
+          }
+          aggObj[key].targetFF += store.targetFF;
+          aggObj[key].actualFF += store.actualFF;
+          aggObj[key].targetFSM += store.targetFSM;
+          aggObj[key].actualFSM += store.actualFSM;
+          store.modelsSet.forEach(m => aggObj[key].modelsSet.add(m));
+        };
+
+        helperAdd(overallAreaAgg, area);
+        helperAdd(overallAp1Agg, ap1);
+        helperAdd(overallDealerAgg, dealer);
+        helperAdd(overallFtAgg, ft);
+      });
 
       let grandTotalTarget = 0;
       let grandTotalActual = 0;
@@ -1407,7 +1452,7 @@
             <tr data-ap1="${extraVal}">
               <td class="${targetColorClass}"><b>${key}</b></td>
               <td>${extraVal}</td>
-              <td class="td-models" style="text-align:center; font-weight:bold;">${modelsCount}</td>
+              <td class="td-models" style="font-weight:bold;">${modelsCount}</td>
               <td class="td-ff">${targetFF}</td>
               <td class="td-ff">${actualFF}</td>
               <td class="td-ff"><b>${achFF}%</b></td>
@@ -1429,7 +1474,7 @@
             <tr>
               <th rowspan="2">${groupTitle}</th>
               ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
-              ${isDealer ? `<th rowspan="2" style="text-align:center;">Models Covered</th>` : ''}
+              ${isDealer ? `<th rowspan="2">Models Covered</th>` : ''}
               <th colspan="3" class="th-ff">FIELD FORCE (FF)</th>
               <th colspan="3" class="th-fsm">FSM</th>
               <th colspan="4" class="th-total">TOTAL OVERALL SUMMARY</th>
@@ -1462,15 +1507,15 @@
           rowsHtml += `
             <tr>
               <td><b>${model}</b></td>
-              <td style="text-align:center;" class="td-ff"><span class="badge bg-ontrack">${counts.ff.onTrack}</span></td>
-              <td style="text-align:center;" class="td-ff"><span class="badge bg-offtrack">${counts.ff.offTrack}</span></td>
-              <td style="text-align:center;" class="td-ff"><span class="badge bg-done">${counts.ff.done}</span></td>
-              <td style="text-align:center;" class="td-fsm"><span class="badge bg-ontrack">${counts.fsm.onTrack}</span></td>
-              <td style="text-align:center;" class="td-fsm"><span class="badge bg-offtrack">${counts.fsm.offTrack}</span></td>
-              <td style="text-align:center;" class="td-fsm"><span class="badge bg-done">${counts.fsm.done}</span></td>
-              <td style="text-align:center;"><span class="badge bg-ontrack">${counts.store.onTrack}</span></td>
-              <td style="text-align:center;"><span class="badge bg-offtrack">${counts.store.offTrack}</span></td>
-              <td style="text-align:center;"><span class="badge bg-done">${counts.store.done}</span></td>
+              <td class="td-ff"><span class="badge bg-ontrack">${counts.ff.onTrack}</span></td>
+              <td class="td-ff"><span class="badge bg-offtrack">${counts.ff.offTrack}</span></td>
+              <td class="td-ff"><span class="badge bg-done">${counts.ff.done}</span></td>
+              <td class="td-fsm"><span class="badge bg-ontrack">${counts.fsm.onTrack}</span></td>
+              <td class="td-fsm"><span class="badge bg-offtrack">${counts.fsm.offTrack}</span></td>
+              <td class="td-fsm"><span class="badge bg-done">${counts.fsm.done}</span></td>
+              <td><span class="badge bg-ontrack">${counts.store.onTrack}</span></td>
+              <td><span class="badge bg-offtrack">${counts.store.offTrack}</span></td>
+              <td><span class="badge bg-done">${counts.store.done}</span></td>
             </tr>
           `;
         });
@@ -1513,15 +1558,15 @@
                     <th colspan="3" class="th-total">Store Count</th>
                   </tr>
                   <tr>
-                    <th class="th-ff" style="text-align:center;">On Track</th>
-                    <th class="th-ff" style="text-align:center;">Off Track</th>
-                    <th class="th-ff" style="text-align:center;">Done</th>
-                    <th class="th-fsm" style="text-align:center;">On Track</th>
-                    <th class="th-fsm" style="text-align:center;">Off Track</th>
-                    <th class="th-fsm" style="text-align:center;">Done</th>
-                    <th class="th-total" style="text-align:center;">On Track</th>
-                    <th class="th-total" style="text-align:center;">Off Track</th>
-                    <th class="th-total" style="text-align:center;">Done</th>
+                    <th class="th-ff">On Track</th>
+                    <th class="th-ff">Off Track</th>
+                    <th class="th-ff">Done</th>
+                    <th class="th-fsm">On Track</th>
+                    <th class="th-fsm">Off Track</th>
+                    <th class="th-fsm">Done</th>
+                    <th class="th-total">On Track</th>
+                    <th class="th-total">Off Track</th>
+                    <th class="th-total">Done</th>
                   </tr>
                 </thead>
                 <tbody>
